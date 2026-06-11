@@ -39,7 +39,7 @@ API 문서: http://localhost:8000/docs
 ```bash
 cd frontend
 npm install
-npm run dev                        # http://localhost:5173 (API는 8000 으로 프록시)
+npm run dev                        # http://localhost:5180 (API는 8000 으로 프록시)
 ```
 
 ## 기술 스택
