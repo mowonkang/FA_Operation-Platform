@@ -2,7 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .database import Base, engine
-from .routers import bm, engineering, equipment, fdc, lessons, meta, parts, pm, vision
+from .routers import (bm, engineering, equipment, fdc, knowledge, lessons, meta,
+                      parts, pm, vision, workflows)
 
 Base.metadata.create_all(bind=engine)
 
@@ -30,6 +31,8 @@ app.include_router(engineering.router, prefix=API)
 app.include_router(fdc.router, prefix=API)
 app.include_router(vision.router, prefix=API)
 app.include_router(lessons.router, prefix=API)
+app.include_router(knowledge.router, prefix=API)
+app.include_router(workflows.router, prefix=API)
 
 
 @app.get("/api/health")

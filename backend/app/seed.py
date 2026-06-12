@@ -218,8 +218,24 @@ def run():
         m.User(username="engineer1", name="김엔지니어", role="engineer", site_id=kr.id),
     ])
 
+    # 데모 워크플로우 (BM_FLOW — 진행중)
+    from .workflow_templates import TEMPLATES
+    wf = m.Workflow(wf_type="BM_FLOW", title="STK-2000-002 권상부 베어링 고장 처리",
+                    equipment_id=eqs[1].id, model_id=stk.id, created_by="최정비")
+    db.add(wf)
+    db.flush()
+    for i, s in enumerate(TEMPLATES["BM_FLOW"]["steps"], start=1):
+        db.add(m.WorkflowStep(workflow_id=wf.id, seq=i, name=s["name"], guide=s["guide"],
+                              link=s.get("link"),
+                              status="DONE" if i <= 4 else "PENDING",
+                              owner="최정비" if i <= 4 else ""))
+
     db.commit()
     print("시드 완료")
+
+    # 지식 DB 시드
+    from . import knowledge_seed
+    knowledge_seed.run()
 
 
 if __name__ == "__main__":

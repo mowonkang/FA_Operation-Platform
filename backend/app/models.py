@@ -275,3 +275,64 @@ class LessonDeployment(Base):
 
     lesson: Mapped["Lesson"] = relationship(back_populates="deployments")
     site: Mapped["Site"] = relationship(lazy="joined")
+
+
+# ───────────────────────── 엔지니어링 지식 DB ─────────────────────────
+
+class KnowledgeArticle(Base):
+    """물류설비 엔지니어링 지식 — 표준·논문·기술자료 출처 포함.
+
+    category: COMMON / STK / AGV_AMR / CNV / LIFT / PORT_OHT / ROBOT
+    """
+    __tablename__ = "knowledge_articles"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    category: Mapped[str] = mapped_column(String(20), index=True)
+    topic: Mapped[str] = mapped_column(String(50), default="")   # WIRE_ROPE/BEARING/BATTERY/WHEEL/CHAIN/SAFETY/...
+    title: Mapped[str] = mapped_column(String(300))
+    summary: Mapped[str] = mapped_column(Text, default="")
+    content: Mapped[str] = mapped_column(Text, default="")        # 본문(plain text, 줄바꿈 유지)
+    sources: Mapped[list | None] = mapped_column(JSON)            # [{"title":..,"url"/"ref":..}]
+    tags: Mapped[str] = mapped_column(String(300), default="")    # 콤마 구분
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+# ───────────────────────── 워크플로우 ─────────────────────────
+
+class Workflow(Base):
+    """표준 업무 워크플로우 인스턴스.
+
+    wf_type: DR / SETUP_STAB / ALARM_ACTION / BM_FLOW / PM_FLOW / CONTROL_CHANGE / SYS_ISSUE
+    """
+    __tablename__ = "workflows"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    wf_type: Mapped[str] = mapped_column(String(20), index=True)
+    title: Mapped[str] = mapped_column(String(300))
+    equipment_id: Mapped[int | None] = mapped_column(ForeignKey("equipments.id"))
+    model_id: Mapped[int | None] = mapped_column(ForeignKey("equipment_models.id"))
+    status: Mapped[str] = mapped_column(String(20), default="OPEN")  # OPEN/DONE/CANCELED
+    created_by: Mapped[str] = mapped_column(String(50), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime)
+    result_note: Mapped[str] = mapped_column(Text, default="")
+    lesson_id: Mapped[int | None] = mapped_column(ForeignKey("lessons.id"))  # 완료 시 L&L 연계
+
+    equipment: Mapped["Equipment | None"] = relationship(lazy="joined")
+    model: Mapped["EquipmentModel | None"] = relationship(lazy="joined")
+    steps: Mapped[list["WorkflowStep"]] = relationship(
+        back_populates="workflow", order_by="WorkflowStep.seq")
+
+
+class WorkflowStep(Base):
+    __tablename__ = "workflow_steps"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    workflow_id: Mapped[int] = mapped_column(ForeignKey("workflows.id"))
+    seq: Mapped[int] = mapped_column(Integer)
+    name: Mapped[str] = mapped_column(String(200))
+    guide: Mapped[str] = mapped_column(Text, default="")          # 수행 지침(판정기준·참조 표준)
+    link: Mapped[dict | None] = mapped_column(JSON)               # {"kind":"knowledge|tool|page","ref":...,"label":..}
+    status: Mapped[str] = mapped_column(String(15), default="PENDING")  # PENDING/IN_PROGRESS/DONE/NG/SKIP
+    owner: Mapped[str] = mapped_column(String(50), default="")
+    note: Mapped[str] = mapped_column(Text, default="")
+    done_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+    workflow: Mapped["Workflow"] = relationship(back_populates="steps")

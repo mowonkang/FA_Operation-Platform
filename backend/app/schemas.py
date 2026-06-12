@@ -340,6 +340,82 @@ class VisionInspectionOut(ORMModel):
     created_at: datetime
 
 
+# ── 지식 DB ──
+class KnowledgeOut(ORMModel):
+    id: int
+    category: str
+    topic: str
+    title: str
+    summary: str
+    content: str
+    sources: list | None
+    tags: str
+    created_at: datetime
+
+
+class KnowledgeIn(BaseModel):
+    category: str
+    topic: str = ""
+    title: str
+    summary: str = ""
+    content: str = ""
+    sources: list | None = None
+    tags: str = ""
+
+
+# ── 워크플로우 ──
+class WorkflowCreateIn(BaseModel):
+    wf_type: str
+    title: str
+    equipment_id: int | None = None
+    model_id: int | None = None
+    created_by: str = ""
+
+
+class WorkflowStepOut(ORMModel):
+    id: int
+    seq: int
+    name: str
+    guide: str
+    link: dict | None
+    status: str
+    owner: str
+    note: str
+    done_at: datetime | None
+
+
+class WorkflowOut(ORMModel):
+    id: int
+    wf_type: str
+    title: str
+    equipment_id: int | None
+    model_id: int | None
+    status: str
+    created_by: str
+    created_at: datetime
+    closed_at: datetime | None
+    result_note: str
+    lesson_id: int | None
+
+
+class WorkflowDetailOut(WorkflowOut):
+    steps: list[WorkflowStepOut] = []
+
+
+class WorkflowStepUpdate(BaseModel):
+    status: str | None = None
+    owner: str | None = None
+    note: str | None = None
+
+
+class WorkflowCloseIn(BaseModel):
+    result_note: str = ""
+    create_lesson: bool = False
+    lesson_title: str = ""
+    lesson_category: str = "DOWNTIME"
+    origin_site_id: int | None = None
+
+
 # ── Engineering ──
 class WireRopeIn(BaseModel):
     breaking_load_kn: float          # 로프 1본 파단하중
@@ -365,6 +441,25 @@ class BatteryIn(BaseModel):
     cycles_per_day: float = 4
     calendar_life_years: float = 8
     used_years: float = 0
+
+
+class WireRopeProIn(BaseModel):
+    """와이어로프 전문가용 입력 — 가반하중·체결방식 기반."""
+    payload_kg: float = 1000            # 가반하중
+    carriage_weight_kg: float = 500     # 운반구(캐리지/포크) 자중
+    dynamic_factor: float = 1.2         # 동적계수(기동/제동 충격)
+    falls: int = 2                      # 로프 줄수(체결 방식: 1/2/4...)
+    n_sheaves: int = 2                  # 로프가 통과하는 시브 수
+    sheave_efficiency: float = 0.98     # 시브 1개당 효율
+    rope_diameter_mm: float = 12
+    rope_grade: int = 1770              # 소선 인장강도 N/mm² (1770/1960)
+    rope_construction: str = "6x36"     # 6x19/6x36/8x19/rotation_resistant
+    d_over_d: float = 25                # 시브경/로프경
+    lift_height_m: float = 10           # 양정(로프 자중 가산)
+    cycles_per_day: float = 200
+    working_days_per_year: int = 300
+    environment: str = "normal"         # clean/normal/dusty/corrosive
+    required_sf: float = 5.0            # 법규 요구 안전율(화물 직접지지 5)
 
 
 class WheelIn(BaseModel):

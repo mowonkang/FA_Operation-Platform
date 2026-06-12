@@ -6,6 +6,117 @@
 from .. import schemas
 
 
+# 로프 구조별 최소파단력 계수 K (EN 12385-4: F_min = K·d²·R0/1000 [kN], d[mm], R0[N/mm²])
+ROPE_K = {
+    "6x19": 0.330,
+    "6x36": 0.356,
+    "8x19": 0.293,
+    "rotation_resistant": 0.318,  # 35(W)x7 등 회전저항 로프 대표값
+}
+
+# 환경 보정계수 (수명 배율)
+ENV_FACTOR = {"clean": 1.0, "normal": 0.85, "dusty": 0.65, "corrosive": 0.45}
+
+
+def wire_rope_pro(p: "schemas.WireRopeProIn") -> dict:
+    """와이어로프 전문가용 수명 예측.
+
+    입력: 가반하중·운반구 자중·체결(리빙) 방식·로프 직경/등급/구조·D/d·양정·듀티·환경
+    출력: 줄당 장력, 최소파단력(EN 12385-4), 안전율(산업안전보건규칙 163조 대비),
+          Feyrer 형태 간이식 굽힘피로 수명(폐기기준 도달), 민감도 곡선(차트용)
+
+    수명 모델 (Feyrer 경향 반영 간이식, 문헌: Mechanics & Industry 2017 등):
+      N_discard = N0 × (D/d ÷ 25)^2.5 × (SF ÷ 5)^2.0 × k_env × k_rope
+      N0 = 300,000 굽힘 (D/d=25, SF=5, 일반 6스트랜드, 청정 환경 — Feyrer 시험 데이터 차수에 맞춘 보수값)
+      회전저항 로프 k_rope = 0.6 (굽힘피로 수명 단축 경향)
+    사이클당 굽힘 수 = (시브 통과 수 × 2) + 1(드럼)
+    """
+    total_load_kn = (p.payload_kg + p.carriage_weight_kg) * 9.81 / 1000.0
+    dyn = max(p.dynamic_factor, 1.0)
+    design_load_kn = total_load_kn * dyn
+
+    falls = max(p.falls, 1)
+    eta = p.sheave_efficiency ** max(p.n_sheaves, 0) if p.n_sheaves else 1.0
+    line_tension_kn = design_load_kn / (falls * max(eta, 1e-6))
+    # 대양정 로프 자중 가산 (강선 밀도 근사: 0.4 kg/m per 100mm² 단면 ≈ 0.0045·d² kg/m)
+    rope_self_kg = 0.0045 * p.rope_diameter_mm**2 * p.lift_height_m
+    line_tension_kn += rope_self_kg * 9.81 / 1000.0
+
+    k = ROPE_K.get(p.rope_construction, 0.356)
+    mbf_kn = k * p.rope_diameter_mm**2 * p.rope_grade / 1000.0
+    sf = mbf_kn / line_tension_kn if line_tension_kn > 0 else float("inf")
+    sf_pass = sf >= p.required_sf
+
+    k_rope = 0.6 if p.rope_construction == "rotation_resistant" else 1.0
+    k_env = ENV_FACTOR.get(p.environment, 0.85)
+
+    def discard_cycles(sf_v: float, dd_v: float) -> float:
+        if sf_v <= 0:
+            return 0.0
+        return 300000.0 * (dd_v / 25.0) ** 2.5 * (sf_v / 5.0) ** 2.0 * k_env * k_rope
+
+    bendings_per_cycle = p.n_sheaves * 2 + 1
+    n_bend = discard_cycles(sf, p.d_over_d)
+    life_cycles = n_bend / bendings_per_cycle if bendings_per_cycle else n_bend
+    life_years = life_cycles / (p.cycles_per_day * p.working_days_per_year) \
+        if p.cycles_per_day > 0 else None
+    replace_years = life_years * 0.8 if life_years else None  # 80% 시점 계획 교체
+
+    # 민감도 곡선 (차트용)
+    curve_dd = []
+    for dd in range(12, 41, 2):
+        n = discard_cycles(sf, dd) / bendings_per_cycle
+        curve_dd.append({"x": dd, "years": round(n / (p.cycles_per_day * p.working_days_per_year), 2)
+                         if p.cycles_per_day > 0 else None})
+    curve_dia = []
+    for delta in range(-4, 5):
+        d2 = p.rope_diameter_mm + delta
+        if d2 < 4:
+            continue
+        mbf2 = k * d2**2 * p.rope_grade / 1000.0
+        sf2 = mbf2 / line_tension_kn if line_tension_kn > 0 else 0
+        n2 = discard_cycles(sf2, p.d_over_d) / bendings_per_cycle
+        curve_dia.append({"x": d2, "sf": round(sf2, 2),
+                          "years": round(n2 / (p.cycles_per_day * p.working_days_per_year), 2)
+                          if p.cycles_per_day > 0 else None})
+    curve_falls = []
+    for f in (1, 2, 4, 6, 8):
+        eta_f = p.sheave_efficiency ** max(p.n_sheaves, 0) if p.n_sheaves else 1.0
+        t = design_load_kn / (f * max(eta_f, 1e-6))
+        sf_f = mbf_kn / t if t > 0 else 0
+        curve_falls.append({"falls": f, "tension_kn": round(t, 2), "sf": round(sf_f, 2)})
+
+    return {
+        "design_load_kn": round(design_load_kn, 2),
+        "line_tension_kn": round(line_tension_kn, 2),
+        "rope_self_weight_kg": round(rope_self_kg, 1),
+        "min_breaking_force_kn": round(mbf_kn, 1),
+        "safety_factor": round(sf, 2),
+        "required_sf": p.required_sf,
+        "sf_pass": sf_pass,
+        "bendings_per_cycle": bendings_per_cycle,
+        "discard_life_bendings": round(n_bend),
+        "discard_life_cycles": round(life_cycles),
+        "discard_life_years": round(life_years, 1) if life_years else None,
+        "planned_replace_years": round(replace_years, 1) if replace_years else None,
+        "judgment": "OK" if sf_pass and (life_years or 0) > 1 else ("CHECK" if sf_pass else "NG"),
+        "curves": {"life_vs_dd": curve_dd, "life_vs_diameter": curve_dia, "tension_vs_falls": curve_falls},
+        "discard_criteria": (
+            "폐기/사용금지 기준 — 산업안전보건규칙 제166조: 한 꼬임 소선 10% 이상 단선, 직경 7% 초과 감소, "
+            "킹크·심한 변형·부식. ISO 4309: 6d/30d 구간 가시 단선 수(로프 구성·M등급별 표), "
+            "단선 클러스터는 즉시 폐기 검토."
+        ),
+        "basis": (
+            f"MBF = K({k})×d²({p.rope_diameter_mm}²)×R0({p.rope_grade})/1000 = {mbf_kn:.1f}kN (EN 12385-4). "
+            f"줄당 장력 = (가반{p.payload_kg}+자중{p.carriage_weight_kg})kg×g×동적계수{dyn} ÷ "
+            f"{falls}줄 ÷ 시브효율{eta:.3f} + 로프자중 = {line_tension_kn:.2f}kN. "
+            f"SF = {sf:.2f} (법규 기준 {p.required_sf}). "
+            f"수명 = 300,000굽힘 × (D/d {p.d_over_d}/25)^2.5 × (SF/5)^2 × 환경{k_env} × 로프계수{k_rope} "
+            f"÷ 사이클당 {bendings_per_cycle}굽힘 (Feyrer 경향 간이식 — 실측 단선 추세로 보정 권장)."
+        ),
+    }
+
+
 def wire_rope_life(p: schemas.WireRopeIn) -> dict:
     """와이어로프 안전율 및 굽힘피로 수명 예측.
 

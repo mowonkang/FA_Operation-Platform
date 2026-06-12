@@ -9,6 +9,8 @@ import Parts from './pages/Parts'
 import Engineering from './pages/Engineering'
 import FDC from './pages/FDC'
 import Lessons from './pages/Lessons'
+import Workflows from './pages/Workflows'
+import Knowledge from './pages/Knowledge'
 
 const menu = [
   { to: '/', label: '대시보드' },
@@ -20,6 +22,8 @@ const menu = [
   { to: '/engineering', label: '엔지니어링 검토' },
   { to: '/fdc', label: 'FDC 모니터링' },
   { to: '/lessons', label: 'Lesson & Learn' },
+  { to: '/workflows', label: '워크플로우' },
+  { to: '/knowledge', label: '지식 DB' },
 ]
 
 export default function App() {
@@ -46,6 +50,8 @@ export default function App() {
           <Route path="/engineering" element={<Engineering />} />
           <Route path="/fdc" element={<FDC />} />
           <Route path="/lessons" element={<Lessons />} />
+          <Route path="/workflows" element={<Workflows />} />
+          <Route path="/knowledge" element={<Knowledge />} />
         </Routes>
       </main>
     </div>
