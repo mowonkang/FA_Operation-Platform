@@ -18,11 +18,15 @@ function moduleLink(key: string): { to: string; label: string } | null {
 
 export default function Lifecycle() {
   const [phases, setPhases] = useState<any[]>([])
+  const [activePhase, setActivePhase] = useState<number | null>(null)
   const [edit, setEdit] = useState(false)
   const [newProc, setNewProc] = useState<any>(null) // {phase_id, name, description}
   const [newPhase, setNewPhase] = useState<any>(null)
 
-  const load = () => api.get('/lifecycle-config/map').then(setPhases)
+  const load = () => api.get('/lifecycle-config/map').then((p) => {
+    setPhases(p)
+    setActivePhase((cur) => cur ?? p[0]?.id ?? null)
+  })
   useEffect(() => { load() }, [])
 
   const renameProc = async (pr: any) => {
@@ -102,37 +106,48 @@ export default function Lifecycle() {
         </div>
       )}
 
-      {phases.map((p) => (
+      {/* 단계 플로우 (셰브론) */}
+      <div className="flow-phases">
+        {phases.map((p) => (
+          <div key={p.id}
+            className={`flow-phase ${activePhase === p.id ? 'active' : ''}`}
+            onClick={() => setActivePhase(p.id)}>
+            <div className="ph-name">{p.seq}. {p.name}</div>
+            <div className="ph-count">{p.processes.length}개 프로세스</div>
+          </div>
+        ))}
+      </div>
+
+      {phases.filter((p) => p.id === activePhase).map((p) => (
         <div className="panel" key={p.id}>
-          <h3 style={{ marginTop: 0 }}>
-            <span className="badge info">{p.seq}</span> {p.name}
+          <div className="panel-title">
+            {p.name} <span className="hint">{p.description}</span>
             {edit && (
-              <>
-                {' '}<button className="secondary" onClick={() => renamePhase(p)}>이름변경</button>{' '}
+              <span style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+                <button className="secondary" onClick={() => renamePhase(p)}>단계 이름변경</button>
                 <button className="secondary" onClick={() => setNewProc({ phase_id: p.id, name: '' })}>+ 프로세스</button>
-              </>
+              </span>
             )}
-          </h3>
-          <p className="muted" style={{ marginTop: 0 }}>{p.description}</p>
-          <div className="cards">
+          </div>
+          <div className="proc-flow">
             {p.processes.map((pr: any) => {
               const link = moduleLink(pr.module_key)
               return (
-                <div className="card" key={pr.id}>
-                  <div style={{ fontWeight: 700, fontSize: 13 }}>{pr.name}</div>
-                  <div className="muted" style={{ marginTop: 4, minHeight: 40 }}>{pr.description}</div>
-                  <div style={{ marginTop: 6 }}>
-                    {link && <Link to={link.to} style={{ fontSize: 12 }}>→ {link.label}</Link>}
-                    {edit && (
-                      <div style={{ marginTop: 6, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                        <button className="secondary" style={{ padding: '2px 6px', fontSize: 11 }} onClick={() => moveProc(p, pr, -1)}>◀</button>
-                        <button className="secondary" style={{ padding: '2px 6px', fontSize: 11 }} onClick={() => moveProc(p, pr, 1)}>▶</button>
-                        <button className="secondary" style={{ padding: '2px 6px', fontSize: 11 }} onClick={() => renameProc(pr)}>이름</button>
-                        <button className="secondary" style={{ padding: '2px 6px', fontSize: 11 }} onClick={() => editDesc(pr)}>설명</button>
-                        <button className="secondary" style={{ padding: '2px 6px', fontSize: 11, color: '#dc2626' }} onClick={() => delProc(pr)}>삭제</button>
-                      </div>
-                    )}
+                <div className="proc-node" key={pr.id}>
+                  <div className="pn-name">{pr.name}</div>
+                  <div className="pn-desc">{pr.description}</div>
+                  <div className="pn-link">
+                    {link && <Link to={link.to}>→ {link.label}</Link>}
                   </div>
+                  {edit && (
+                    <div style={{ marginTop: 6, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                      <button className="secondary" style={{ padding: '1px 6px', fontSize: 11 }} onClick={() => moveProc(p, pr, -1)}>◀</button>
+                      <button className="secondary" style={{ padding: '1px 6px', fontSize: 11 }} onClick={() => moveProc(p, pr, 1)}>▶</button>
+                      <button className="secondary" style={{ padding: '1px 6px', fontSize: 11 }} onClick={() => renameProc(pr)}>이름</button>
+                      <button className="secondary" style={{ padding: '1px 6px', fontSize: 11 }} onClick={() => editDesc(pr)}>설명</button>
+                      <button className="danger" style={{ padding: '1px 6px', fontSize: 11 }} onClick={() => delProc(pr)}>삭제</button>
+                    </div>
+                  )}
                 </div>
               )
             })}

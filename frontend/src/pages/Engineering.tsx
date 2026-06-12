@@ -357,11 +357,66 @@ function ProBlock({ cfg }: { cfg: ProConfig }) {
   )
 }
 
-export default function Engineering() {
+function BasisTab() {
+  const [basis, setBasis] = useState<any[]>([])
+  useEffect(() => { api.get('/engineering/basis').then(setBasis) }, [])
   return (
     <div>
-      <h2>설비 엔지니어링 검토</h2>
-      <p className="muted">간이 수명모델 기반 검토용입니다. 결과는 FDC 실측 데이터와 병행하여 판단하세요. 산식 근거는 [지식 DB] 참조.</p>
+      <p className="page-desc">
+        각 계산 툴의 수식·적용 표준·파라미터 출처·적용 한계입니다. 간이식의 계수는 실측 데이터 축적 시 보정 대상으로 명시했습니다.
+      </p>
+      {basis.map((b) => (
+        <div className="panel" key={b.tool}>
+          <div className="panel-title">{b.name} <span className="hint">{b.purpose}</span></div>
+          {b.formulas.map((f: any, i: number) => (
+            <div key={i}>
+              <div className="formula">{f.label}:  {f.expr}</div>
+              {f.note && <p className="muted" style={{ margin: '2px 0 8px' }}>{f.note}</p>}
+            </div>
+          ))}
+          <h3>파라미터·계수 출처</h3>
+          <table>
+            <thead><tr><th style={{ width: 90 }}>기호</th><th style={{ width: 140 }}>항목</th><th>값</th><th style={{ width: 280 }}>출처</th></tr></thead>
+            <tbody>
+              {b.parameters.map((p: any, i: number) => (
+                <tr key={i}><td><code>{p.symbol}</code></td><td>{p.name}</td><td>{p.values}</td>
+                  <td className="muted">{p.source}</td></tr>
+              ))}
+            </tbody>
+          </table>
+          {b.discard !== '-' && <p style={{ fontSize: 12.5 }}><b>폐기/관리 기준</b> — {b.discard}</p>}
+          <p style={{ fontSize: 12.5, color: 'var(--warn)' }}><b>적용 한계</b> — {b.limits}</p>
+          <p style={{ fontSize: 12 }}>
+            {b.references.map((r: any, i: number) => (
+              <span key={i} className="std-ref">
+                {r.url ? <a href={r.url} target="_blank" rel="noreferrer">{r.title}</a> : r.title}
+              </span>
+            ))}
+          </p>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+export default function Engineering() {
+  const [tab, setTab] = useState<'tools' | 'basis'>('tools')
+  return (
+    <div>
+      <div className="tabs">
+        <button className={tab === 'tools' ? 'on' : ''} onClick={() => setTab('tools')}>계산 툴</button>
+        <button className={tab === 'basis' ? 'on' : ''} onClick={() => setTab('basis')}>📐 산정 기준·표준 근거</button>
+      </div>
+      {tab === 'basis' && <BasisTab />}
+      {tab === 'tools' && <ToolsTab />}
+    </div>
+  )
+}
+
+function ToolsTab() {
+  return (
+    <div>
+      <p className="page-desc">간이 수명모델 기반 검토용 — 결과는 FDC 실측 데이터와 병행 판단. 산식·계수의 근거는 [산정 기준·표준 근거] 탭 참조.</p>
       <WireRopePro />
       {PRO_BLOCKS.map((b) => <ProBlock key={b.id} cfg={b} />)}
       <div className="row">

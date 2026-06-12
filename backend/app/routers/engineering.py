@@ -2,8 +2,15 @@ from fastapi import APIRouter
 
 from .. import schemas
 from ..services import engineering as eng
+from ..services.engineering_basis import BASIS
 
 router = APIRouter(prefix="/engineering", tags=["engineering"])
+
+
+@router.get("/basis")
+def basis():
+    """전 계산 툴의 산정 기준·표준·파라미터 출처·적용 한계."""
+    return BASIS
 
 
 @router.post("/wire-rope-pro")
