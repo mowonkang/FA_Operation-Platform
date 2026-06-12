@@ -134,7 +134,7 @@ export default function Workflows() {
             <tbody>
               {list.map((w) => (
                 <tr key={w.id} onClick={() => open(w.id)} style={{ cursor: 'pointer',
-                  background: sel?.id === w.id ? '#eff6ff' : undefined }}>
+                  background: sel?.id === w.id ? 'var(--row-selected)' : undefined }}>
                   <td>{w.id}</td>
                   <td><span className="badge info">{w.wf_type}</span></td>
                   <td>{w.title}</td>

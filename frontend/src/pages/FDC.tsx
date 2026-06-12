@@ -60,9 +60,9 @@ export default function FDC() {
             <XAxis dataKey="t" minTickGap={40} fontSize={11} />
             <YAxis domain={['auto', 'auto']} fontSize={11} />
             <Tooltip />
-            {sensor?.warn_high != null && <ReferenceLine y={sensor.warn_high} stroke="#d97706" strokeDasharray="4 4" label={{ value: 'WARN', fontSize: 10 }} />}
-            {sensor?.alarm_high != null && <ReferenceLine y={sensor.alarm_high} stroke="#dc2626" strokeDasharray="4 4" label={{ value: 'ALARM', fontSize: 10 }} />}
-            <Line type="monotone" dataKey="value" stroke="#2563eb" dot={false} strokeWidth={1.5} />
+            {sensor?.warn_high != null && <ReferenceLine y={sensor.warn_high} stroke="#f59e0b" strokeDasharray="4 4" label={{ value: 'WARN', fontSize: 10 }} />}
+            {sensor?.alarm_high != null && <ReferenceLine y={sensor.alarm_high} stroke="#ef4444" strokeDasharray="4 4" label={{ value: 'ALARM', fontSize: 10 }} />}
+            <Line type="monotone" dataKey="value" stroke="#3b82f6" dot={false} strokeWidth={1.5} />
           </LineChart>
         </ResponsiveContainer>
         <p className="muted">룰: 레벨 상·하한 / 스파이크(4σ) / 드리프트(워닝한계 70% 접근). 운영 시 게이트웨이가 POST /api/v1/fdc/ingest 로 전송.</p>

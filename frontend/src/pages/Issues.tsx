@@ -57,7 +57,7 @@ export default function Issues() {
             <div className="card" key={d.domain}>
               <div className="label">{d.label}</div>
               <div className="value" style={{ fontSize: 18 }}>
-                <span style={{ color: '#dc2626' }}>{d.open}</span> / <span style={{ color: '#d97706' }}>{d.in_progress}</span> / <span style={{ color: '#059669' }}>{d.closed}</span>
+                <span style={{ color: '#ef4444' }}>{d.open}</span> / <span style={{ color: '#f59e0b' }}>{d.in_progress}</span> / <span style={{ color: '#22c55e' }}>{d.closed}</span>
               </div>
               <div className="muted">미결/진행/완료</div>
             </div>

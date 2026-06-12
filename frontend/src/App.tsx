@@ -67,6 +67,11 @@ export default function App() {
   const [sites, setSites] = useState<any[]>([])
   useEffect(() => { api.get('/sites').then(setSites).catch(() => {}) }, [])
   const pickSite = (v: string) => { setSite(v); localStorage.setItem('fa_site', v) }
+  const [theme, setTheme] = useState(localStorage.getItem('fa_theme') ?? 'light')
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme
+    localStorage.setItem('fa_theme', theme)
+  }, [theme])
   const isGlobal = group?.name === '전사 공통 표준'
   return (
     <SiteCtx.Provider value={{ site, setSite: pickSite }}>
@@ -102,6 +107,10 @@ export default function App() {
                   {sites.map((s: any) => <option key={s.id} value={s.id}>{s.code} {s.name}</option>)}
                 </select>
               )}
+            <button className="theme-toggle" title="라이트/다크 테마 전환"
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
+              {theme === 'dark' ? '☀' : '◐'}
+            </button>
             <span>{new Date().toLocaleDateString('ko-KR')}</span>
           </div>
         </div>

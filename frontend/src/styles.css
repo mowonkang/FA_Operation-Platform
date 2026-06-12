@@ -29,9 +29,41 @@
   --info: #1d4ed8;
   --info-bg: #e8eefc;
   --neutral-bg: #eceff3;
+  --row-hover: #f4f7fb;
+  --row-selected: #e8f1fc;
+  --chart-grid: #e2e6ec;
   --radius: 6px;
-  --font: 'Pretendard', 'Inter', 'Segoe UI', 'Malgun Gothic', system-ui, sans-serif;
+  --font: 'Pretendard Variable', 'Pretendard', 'Inter', 'Segoe UI', 'Malgun Gothic', system-ui, sans-serif;
   --mono: 'JetBrains Mono', 'Consolas', monospace;
+}
+
+/* ── 다크 테마 (Siemens iX Classic Dark 계열 산업용 팔레트) ── */
+[data-theme="dark"] {
+  --bg: #0d1117;
+  --surface: #161d26;
+  --surface-2: #1c2530;
+  --border: #2a3543;
+  --border-strong: #3c4a5c;
+  --text: #e8edf4;
+  --text-2: #aeb9c8;
+  --text-3: #76859a;
+  --sidebar-bg: #0a0e14;
+  --sidebar-text: #8b98ab;
+  --sidebar-active: #18202b;
+  --accent: #4d9fff;
+  --accent-soft: #14283f;
+  --ok: #41c46a;
+  --ok-bg: #11301c;
+  --warn: #f0a13e;
+  --warn-bg: #38280f;
+  --ng: #f0564d;
+  --ng-bg: #3a1715;
+  --info: #6aa8ff;
+  --info-bg: #15263e;
+  --neutral-bg: #232e3b;
+  --row-hover: #1b242f;
+  --row-selected: #14283f;
+  --chart-grid: #2a3543;
 }
 
 * { box-sizing: border-box; }
@@ -52,7 +84,7 @@ body {
   display: flex; flex-direction: column;
 }
 .sidebar .brand {
-  padding: 18px 18px 14px; border-bottom: 1px solid #232d3b;
+  padding: 18px 18px 14px; border-bottom: 1px solid var(--sidebar-active);
 }
 .sidebar .brand b { color: #fff; font-size: 14px; letter-spacing: .3px; display: block; }
 .sidebar .brand span { color: var(--text-3); font-size: 11px; }
@@ -116,16 +148,16 @@ table {
   border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden;
   font-variant-numeric: tabular-nums;
 }
-th, td { padding: 6px 10px; text-align: left; font-size: 12.5px; border-bottom: 1px solid #edf0f4; }
+th, td { padding: 6px 10px; text-align: left; font-size: 12.5px; border-bottom: 1px solid var(--border); }
 th {
   background: var(--surface-2); color: var(--text-3); font-weight: 600;
   font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; white-space: nowrap;
 }
 td.num, th.num { text-align: right; }
 tr:last-child td { border-bottom: none; }
-tr:hover td { background: #f4f7fb; }
+tr:hover td { background: var(--row-hover); }
 tr.clickable { cursor: pointer; }
-tr.selected td { background: var(--accent-soft); }
+tr.selected td { background: var(--row-selected); }
 
 /* ── 뱃지 ── */
 .badge {
@@ -234,7 +266,7 @@ a:hover { text-decoration: underline; }
 /* ── 액션 큐 ── */
 .action-item {
   display: flex; align-items: center; gap: 10px; padding: 7px 10px;
-  border-bottom: 1px solid #edf0f4; font-size: 12.5px;
+  border-bottom: 1px solid var(--border); font-size: 12.5px;
 }
 .action-item:last-child { border-bottom: none; }
 .action-item .ai-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -257,3 +289,38 @@ a:hover { text-decoration: underline; }
 }
 .std-ref { font-size: 11px; color: var(--info); background: var(--info-bg);
   padding: 1px 6px; border-radius: 3px; margin-right: 4px; display: inline-block; }
+
+
+/* ── 폴리시 (Untitled UI / Carbon 패턴) ── */
+* { transition: background-color .12s ease, border-color .12s ease, color .12s ease; }
+.card { transition: box-shadow .15s ease, transform .15s ease; }
+.card:hover { box-shadow: 0 3px 10px rgba(0,0,0,.10); }
+[data-theme="dark"] .card:hover { box-shadow: 0 3px 12px rgba(0,0,0,.5); }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 6px; border: 2px solid var(--bg); }
+::-webkit-scrollbar-thumb:hover { background: var(--text-3); }
+
+button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* recharts 테마 연동 — 축·범례·그리드가 테마 색을 따라감 */
+.recharts-text, .recharts-legend-item-text { fill: var(--text-3) !important; color: var(--text-2) !important; }
+.recharts-cartesian-axis-line, .recharts-cartesian-axis-tick-line { stroke: var(--border-strong); }
+.recharts-cartesian-grid line { stroke: var(--chart-grid); }
+.recharts-default-tooltip {
+  background: var(--surface) !important; border: 1px solid var(--border-strong) !important;
+  border-radius: 6px; color: var(--text) !important;
+}
+.recharts-tooltip-item, .recharts-tooltip-label { color: var(--text) !important; }
+
+/* 이미지·코드 표시 다크 호환 */
+img { background: var(--surface-2); }
+pre, code { color: var(--text-2); }
+
+/* 테마 토글 버튼 */
+.theme-toggle {
+  background: transparent; border: 1px solid var(--border-strong); color: var(--text-2);
+  border-radius: 6px; padding: 4px 9px; font-size: 13px; cursor: pointer; line-height: 1;
+}
+.theme-toggle:hover { background: var(--surface-2); filter: none; }

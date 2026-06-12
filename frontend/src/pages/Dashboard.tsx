@@ -8,7 +8,7 @@ import { api } from '../api'
 import { useSite, sq } from '../site'
 
 const PM_COLORS: Record<string, string> = {
-  DONE: '#15803d', PLANNED: '#1c6fd4', IN_PROGRESS: '#b45309', OVERDUE: '#b91c1c',
+  DONE: '#22c55e', PLANNED: '#3b82f6', IN_PROGRESS: '#f59e0b', OVERDUE: '#ef4444',
 }
 
 export default function Dashboard() {
@@ -161,8 +161,8 @@ export default function Dashboard() {
               <YAxis yAxisId="r" orientation="right" fontSize={11} />
               <Tooltip />
               <Legend wrapperStyle={{ fontSize: 11 }} />
-              <Bar yAxisId="l" dataKey="bm_count" fill="#1c6fd4" name="BM 건수" barSize={18} />
-              <Line yAxisId="r" dataKey="downtime_min" stroke="#b91c1c" name="다운타임(분)" strokeWidth={2} dot={false} />
+              <Bar yAxisId="l" dataKey="bm_count" fill="#3b82f6" name="BM 건수" barSize={18} />
+              <Line yAxisId="r" dataKey="downtime_min" stroke="#ef4444" name="다운타임(분)" strokeWidth={2} dot={false} />
             </ComposedChart>
           </ResponsiveContainer>
         </div>
@@ -173,7 +173,7 @@ export default function Dashboard() {
               <XAxis type="number" fontSize={11} allowDecimals={false} />
               <YAxis type="category" dataKey="name" fontSize={11} width={90} />
               <Tooltip />
-              <Bar dataKey="count" fill="#b45309" barSize={16} name="건수" />
+              <Bar dataKey="count" fill="#f59e0b" barSize={16} name="건수" />
             </BarChart>
           </ResponsiveContainer>
         </div>

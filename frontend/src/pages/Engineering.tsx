@@ -104,8 +104,8 @@ function WireRopePro() {
                   <XAxis dataKey="x" fontSize={11} label={{ value: 'D/d', position: 'insideBottomRight', fontSize: 11 }} />
                   <YAxis fontSize={11} label={{ value: '년', angle: -90, position: 'insideLeft', fontSize: 11 }} />
                   <Tooltip />
-                  <ReferenceLine x={v.d_over_d} stroke="#dc2626" strokeDasharray="4 4" label={{ value: '현재', fontSize: 10 }} />
-                  <Line type="monotone" dataKey="years" stroke="#2563eb" dot={false} strokeWidth={2} name="폐기수명(년)" />
+                  <ReferenceLine x={v.d_over_d} stroke="#ef4444" strokeDasharray="4 4" label={{ value: '현재', fontSize: 10 }} />
+                  <Line type="monotone" dataKey="years" stroke="#3b82f6" dot={false} strokeWidth={2} name="폐기수명(년)" />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -117,9 +117,9 @@ function WireRopePro() {
                   <YAxis fontSize={11} />
                   <Tooltip />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
-                  <ReferenceLine x={v.rope_diameter_mm} stroke="#dc2626" strokeDasharray="4 4" />
-                  <Line type="monotone" dataKey="years" stroke="#2563eb" dot strokeWidth={2} name="폐기수명(년)" />
-                  <Line type="monotone" dataKey="sf" stroke="#059669" dot strokeWidth={1.5} name="안전율" />
+                  <ReferenceLine x={v.rope_diameter_mm} stroke="#ef4444" strokeDasharray="4 4" />
+                  <Line type="monotone" dataKey="years" stroke="#3b82f6" dot strokeWidth={2} name="폐기수명(년)" />
+                  <Line type="monotone" dataKey="sf" stroke="#22c55e" dot strokeWidth={1.5} name="안전율" />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -129,7 +129,7 @@ function WireRopePro() {
                 <thead><tr><th>줄수</th><th>줄당 장력(kN)</th><th>안전율</th><th>판정</th></tr></thead>
                 <tbody>
                   {r.curves.tension_vs_falls.map((f: any) => (
-                    <tr key={f.falls} style={{ background: f.falls === v.falls ? '#eff6ff' : undefined }}>
+                    <tr key={f.falls} style={{ background: f.falls === v.falls ? 'var(--row-selected)' : undefined }}>
                       <td>{f.falls}{f.falls === v.falls && ' ◀ 현재'}</td>
                       <td>{f.tension_kn}</td><td>{f.sf}</td>
                       <td><span className={judgeClass(f.sf >= v.required_sf ? 'OK' : 'NG')}>{f.sf >= v.required_sf ? 'OK' : 'NG'}</span></td>
@@ -261,7 +261,7 @@ const PRO_BLOCKS: ProConfig[] = [
       { key: 'service_factor', label: '서비스팩터', def: 1.2, step: 0.1 },
     ],
     curveKey: 'power_vs_speed', curveName: '속도 vs 필요출력', curveX: 'x',
-    curveSeries: [{ key: 'required_kw', name: '필요(kW)', color: '#2563eb' }, { key: 'steady_kw', name: '정상(kW)', color: '#059669' }],
+    curveSeries: [{ key: 'required_kw', name: '필요(kW)', color: '#3b82f6' }, { key: 'steady_kw', name: '정상(kW)', color: '#22c55e' }],
     summary: (r) => `정상 ${r.steady_kw}kW · 피크 ${r.peak_kw}kW → 필요 ${r.required_kw}kW → 추천 모터 ${r.recommended_motor_kw}kW`,
   },
   {
@@ -277,7 +277,7 @@ const PRO_BLOCKS: ProConfig[] = [
       { key: 'efficiency', label: '효율', def: 0.85, step: 0.05 },
     ],
     curveKey: 'power_vs_capacity', curveName: '반송능력 vs 필요출력', curveX: 'x',
-    curveSeries: [{ key: 'required_kw', name: '필요(kW)', color: '#2563eb' }],
+    curveSeries: [{ key: 'required_kw', name: '필요(kW)', color: '#3b82f6' }],
     summary: (r) => `마찰 ${r.friction_kw}kW + 양정 ${r.lift_kw}kW → 필요 ${r.required_kw}kW → 추천 모터 ${r.recommended_motor_kw}kW`,
   },
   {
@@ -293,7 +293,7 @@ const PRO_BLOCKS: ProConfig[] = [
       { key: 'elongation_rate_pct_year', label: '신율 진행률 (%/년)', def: 0.3, step: 0.05 },
     ],
     curveKey: 'elongation_projection', curveName: '신율 진행 예측 (년)', curveX: 'x',
-    curveSeries: [{ key: 'elongation_pct', name: '신율(%)', color: '#2563eb' }],
+    curveSeries: [{ key: 'elongation_pct', name: '신율(%)', color: '#3b82f6' }],
     summary: (r) => `SF ${r.safety_factor} · 강도손실 ~${r.estimated_strength_loss_pct}% · 2%(교체계획) ${r.years_to_plan_2pct}년 · 3%(한계) ${r.years_to_limit_3pct}년`,
   },
 ]

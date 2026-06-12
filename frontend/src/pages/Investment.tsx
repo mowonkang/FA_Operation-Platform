@@ -93,7 +93,7 @@ export default function Investment() {
         <tbody>
           {quotes.map((q) => (
             <tr key={q.id} onClick={() => open(q.id)} style={{ cursor: 'pointer',
-              background: sel?.id === q.id ? '#eff6ff' : undefined }}>
+              background: sel?.id === q.id ? 'var(--row-selected)' : undefined }}>
               <td>{q.id}</td><td>{q.project}</td><td>{q.vendor}</td>
               <td>{fmt(q.total_amount)} {q.currency}</td>
               <td><span className={`badge ${q.status === 'SELECTED' ? 'ok' : q.status === 'REJECTED' ? 'ng' : 'info'}`}>{q.status}</span></td>
@@ -127,18 +127,18 @@ export default function Investment() {
                   <XAxis dataKey="label" fontSize={11} />
                   <YAxis fontSize={11} tickFormatter={(v) => `${(v / 1e6).toFixed(0)}M`} />
                   <Tooltip formatter={(v: any) => fmt(v)} />
-                  <Bar dataKey="amount" fill="#2563eb" name="금액" />
+                  <Bar dataKey="amount" fill="#3b82f6" name="금액" />
                 </BarChart>
               </ResponsiveContainer>
               {analysisData.calc_errors.length > 0 && (
                 <>
-                  <b style={{ fontSize: 13, color: '#dc2626' }}>계산 오류</b>
+                  <b style={{ fontSize: 13, color: '#ef4444' }}>계산 오류</b>
                   <table>
                     <thead><tr><th>항목</th><th>수량×단가</th><th>표기 금액</th><th>차이</th></tr></thead>
                     <tbody>
                       {analysisData.calc_errors.map((c: any, i: number) => (
                         <tr key={i}><td>{c.name}</td><td>{fmt(c.expected)}</td><td>{fmt(c.amount)}</td>
-                          <td style={{ color: '#dc2626' }}>{fmt(c.diff)}</td></tr>
+                          <td style={{ color: '#ef4444' }}>{fmt(c.diff)}</td></tr>
                       ))}
                     </tbody>
                   </table>
@@ -146,7 +146,7 @@ export default function Investment() {
               )}
               {analysisData.price_outliers.length > 0 && (
                 <>
-                  <b style={{ fontSize: 13, color: '#d97706' }}>이상 단가 (카테고리 평균 +2σ)</b>
+                  <b style={{ fontSize: 13, color: '#f59e0b' }}>이상 단가 (카테고리 평균 +2σ)</b>
                   <table>
                     <thead><tr><th>항목</th><th>단가</th><th>카테고리 평균</th><th>z</th></tr></thead>
                     <tbody>
@@ -159,7 +159,7 @@ export default function Investment() {
               )}
               {analysisData.duplicates.length > 0 && (
                 <>
-                  <b style={{ fontSize: 13, color: '#d97706' }}>중복 의심</b>
+                  <b style={{ fontSize: 13, color: '#f59e0b' }}>중복 의심</b>
                   <table>
                     <thead><tr><th>항목</th><th>출현</th><th>합계</th></tr></thead>
                     <tbody>
@@ -221,7 +221,7 @@ export default function Investment() {
                   <Tooltip formatter={(v: any) => fmt(v)} />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
                   {cmp.vendors.map((v: string, i: number) => (
-                    <Bar key={v} dataKey={v} fill={['#2563eb', '#059669', '#d97706'][i % 3]} />
+                    <Bar key={v} dataKey={v} fill={['#3b82f6', '#22c55e', '#f59e0b'][i % 3]} />
                   ))}
                 </BarChart>
               </ResponsiveContainer>

@@ -44,7 +44,7 @@ export default function Knowledge() {
             <tbody>
               {articles.map((a) => (
                 <tr key={a.id} onClick={() => setSel(a)} style={{ cursor: 'pointer',
-                  background: sel?.id === a.id ? '#eff6ff' : undefined }}>
+                  background: sel?.id === a.id ? 'var(--row-selected)' : undefined }}>
                   <td><span className="badge gray">{a.category}</span></td>
                   <td>{a.topic}</td>
                   <td>{a.title}</td>

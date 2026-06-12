@@ -289,9 +289,9 @@ function MonitorTab() {
                   <XAxis dataKey="t" fontSize={11} />
                   <YAxis domain={[0, 100]} fontSize={11} />
                   <Tooltip />
-                  <ReferenceLine y={30} stroke="#b45309" strokeDasharray="4 4" />
-                  <ReferenceLine y={60} stroke="#b91c1c" strokeDasharray="4 4" />
-                  <Line type="monotone" dataKey="score" stroke="#1c6fd4" strokeWidth={2} />
+                  <ReferenceLine y={30} stroke="#f59e0b" strokeDasharray="4 4" />
+                  <ReferenceLine y={60} stroke="#ef4444" strokeDasharray="4 4" />
+                  <Line type="monotone" dataKey="score" stroke="#3b82f6" strokeWidth={2} />
                 </LineChart>
               </ResponsiveContainer>
 
