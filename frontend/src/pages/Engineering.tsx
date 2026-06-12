@@ -238,12 +238,132 @@ function Calculator({ calc }: { calc: (typeof CALCS)[0] }) {
   )
 }
 
+// ── 블럭형 PRO 계산기: 설정(fields/endpoint/curve)만 추가하면 새 툴 블럭이 생성됨 ──
+type ProField = { key: string; label: string; def: number | string; step?: number; options?: { v: string | number; label: string }[] }
+type ProConfig = {
+  id: string; title: string; endpoint: string; note: string
+  fields: ProField[]
+  curveKey: string; curveName: string; curveX: string; curveSeries: { key: string; name: string; color: string }[]
+  summary: (r: any) => string
+}
+
+const PRO_BLOCKS: ProConfig[] = [
+  {
+    id: 'motor', title: '⚡ 모터 용량 산정 (주행/권상)', endpoint: '/engineering/motor',
+    note: '주행: F=mgμ+ma, 권상: F=mg(+ma). SF 적용 후 표준 모터 용량 추천. 인버터 과부하율·브레이크 토크는 별도 검토.',
+    fields: [
+      { key: 'mode', label: '구동 종류', def: 'travel', options: [{ v: 'travel', label: '주행' }, { v: 'hoist', label: '권상' }] },
+      { key: 'mass_kg', label: '총 질량 (kg)', def: 5000, step: 100 },
+      { key: 'speed_m_min', label: '속도 (m/min)', def: 120, step: 10 },
+      { key: 'accel_m_s2', label: '가속도 (m/s²)', def: 0.5, step: 0.1 },
+      { key: 'rolling_resistance', label: '주행저항계수', def: 0.015, step: 0.005 },
+      { key: 'efficiency', label: '효율', def: 0.85, step: 0.05 },
+      { key: 'service_factor', label: '서비스팩터', def: 1.2, step: 0.1 },
+    ],
+    curveKey: 'power_vs_speed', curveName: '속도 vs 필요출력', curveX: 'x',
+    curveSeries: [{ key: 'required_kw', name: '필요(kW)', color: '#2563eb' }, { key: 'steady_kw', name: '정상(kW)', color: '#059669' }],
+    summary: (r) => `정상 ${r.steady_kw}kW · 피크 ${r.peak_kw}kW → 필요 ${r.required_kw}kW → 추천 모터 ${r.recommended_motor_kw}kW`,
+  },
+  {
+    id: 'conveyor', title: '📦 컨베이어 구동 출력', endpoint: '/engineering/conveyor',
+    note: 'P = [μ·g·이동질량·v + Q·g·H]/η × SF (CEMA 개념 간이식). 정밀 설계는 제조사 프로그램 검증.',
+    fields: [
+      { key: 'belt_speed_m_min', label: '벨트 속도 (m/min)', def: 30, step: 5 },
+      { key: 'length_m', label: '길이 (m)', def: 20, step: 5 },
+      { key: 'moving_mass_kg', label: '이동부 질량 (kg)', def: 400, step: 50 },
+      { key: 'capacity_t_h', label: '반송능력 (t/h)', def: 30, step: 5 },
+      { key: 'lift_height_m', label: '양정 (m)', def: 0, step: 0.5 },
+      { key: 'friction_coeff', label: '마찰계수', def: 0.03, step: 0.005 },
+      { key: 'efficiency', label: '효율', def: 0.85, step: 0.05 },
+    ],
+    curveKey: 'power_vs_capacity', curveName: '반송능력 vs 필요출력', curveX: 'x',
+    curveSeries: [{ key: 'required_kw', name: '필요(kW)', color: '#2563eb' }],
+    summary: (r) => `마찰 ${r.friction_kw}kW + 양정 ${r.lift_kw}kW → 필요 ${r.required_kw}kW → 추천 모터 ${r.recommended_motor_kw}kW`,
+  },
+  {
+    id: 'chain', title: '⛓ 리프 체인 수명 (신율 추세)', endpoint: '/engineering/chain',
+    note: 'SF = MBL/줄당장력 (법규 5 이상). 신율 2% 교체계획 / 3% 즉시교체 (FLTA). 신율 측정 이력으로 진행률 입력.',
+    fields: [
+      { key: 'load_kg', label: '가반하중 (kg)', def: 1500, step: 100 },
+      { key: 'carriage_weight_kg', label: '캐리지 자중 (kg)', def: 500, step: 50 },
+      { key: 'chain_count', label: '체인 줄수', def: 2, step: 1 },
+      { key: 'dynamic_factor', label: '동적계수', def: 1.3, step: 0.05 },
+      { key: 'mbl_kn', label: 'MBL (kN/줄)', def: 100, step: 10 },
+      { key: 'current_elongation_pct', label: '현재 신율 (%)', def: 0.8, step: 0.1 },
+      { key: 'elongation_rate_pct_year', label: '신율 진행률 (%/년)', def: 0.3, step: 0.05 },
+    ],
+    curveKey: 'elongation_projection', curveName: '신율 진행 예측 (년)', curveX: 'x',
+    curveSeries: [{ key: 'elongation_pct', name: '신율(%)', color: '#2563eb' }],
+    summary: (r) => `SF ${r.safety_factor} · 강도손실 ~${r.estimated_strength_loss_pct}% · 2%(교체계획) ${r.years_to_plan_2pct}년 · 3%(한계) ${r.years_to_limit_3pct}년`,
+  },
+]
+
+function ProBlock({ cfg }: { cfg: ProConfig }) {
+  const [v, setV] = useState<Record<string, any>>(
+    Object.fromEntries(cfg.fields.map((f) => [f.key, f.def])))
+  const [r, setR] = useState<any>(null)
+  const [err, setErr] = useState('')
+
+  const run = async () => {
+    setErr('')
+    try {
+      const body = Object.fromEntries(Object.entries(v).map(([k, x]) =>
+        [k, typeof x === 'string' && !isNaN(Number(x)) && x !== '' ? Number(x) : x]))
+      setR(await api.post(cfg.endpoint, body))
+    } catch (e: any) { setErr(e.message) }
+  }
+  useEffect(() => { run() }, [])
+
+  return (
+    <div className="panel" style={{ borderLeft: '4px solid #059669' }}>
+      <h3 style={{ marginTop: 0 }}>{cfg.title}</h3>
+      <p className="muted">{cfg.note}</p>
+      <div className="form-grid">
+        {cfg.fields.map((f) => (
+          <label key={f.key}>{f.label}
+            {f.options ? (
+              <select value={v[f.key]} onChange={(e) => setV({ ...v, [f.key]: e.target.value })}>
+                {f.options.map((o) => <option key={o.v} value={o.v}>{o.label}</option>)}
+              </select>
+            ) : (
+              <input type="number" step={f.step ?? 1} value={v[f.key]}
+                onChange={(e) => setV({ ...v, [f.key]: e.target.value })} />
+            )}
+          </label>
+        ))}
+      </div>
+      <button onClick={run}>계산</button>
+      {err && <div className="error">{err}</div>}
+      {r && !r.error && (
+        <div className="result-box">
+          <div className="big"><span className={judgeClass(r.judgment)}>{r.judgment}</span> {cfg.summary(r)}</div>
+          {r.curves?.[cfg.curveKey] && (
+            <ResponsiveContainer width="100%" height={180}>
+              <LineChart data={r.curves[cfg.curveKey]}>
+                <XAxis dataKey={cfg.curveX} fontSize={11} />
+                <YAxis fontSize={11} />
+                <Tooltip />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
+                {cfg.curveSeries.map((s) => (
+                  <Line key={s.key} type="monotone" dataKey={s.key} stroke={s.color} dot={false} strokeWidth={2} name={s.name} />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+          )}
+          <p className="muted" style={{ marginBottom: 0 }}>근거: {r.basis}</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function Engineering() {
   return (
     <div>
       <h2>설비 엔지니어링 검토</h2>
       <p className="muted">간이 수명모델 기반 검토용입니다. 결과는 FDC 실측 데이터와 병행하여 판단하세요. 산식 근거는 [지식 DB] 참조.</p>
       <WireRopePro />
+      {PRO_BLOCKS.map((b) => <ProBlock key={b.id} cfg={b} />)}
       <div className="row">
         {CALCS.map((c) => <Calculator key={c.id} calc={c} />)}
       </div>

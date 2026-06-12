@@ -76,8 +76,9 @@ def lifecycle(eq_id: int, db: Session = Depends(get_db)):
 
 @router.post("/lifecycle", response_model=schemas.LifecycleEventOut)
 def add_lifecycle(body: schemas.LifecycleEventIn, db: Session = Depends(get_db)):
-    if body.stage not in LIFECYCLE_STAGES:
-        raise HTTPException(400, f"stage must be one of {LIFECYCLE_STAGES}")
+    # 라이프사이클 프로세스가 사용자 정의 가능하므로 stage 는 자유 문자열 허용
+    if not body.stage.strip():
+        raise HTTPException(400, "stage is required")
     data = body.model_dump()
     if data.get("event_date") is None:
         data.pop("event_date")

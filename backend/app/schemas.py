@@ -468,3 +468,143 @@ class WheelIn(BaseModel):
     wear_limit_diameter_mm: float
     wear_rate_mm_per_year: float     # 실측 기반 연간 마모량
     safety_margin: float = 0.8       # 안전계수(예측수명의 80%만 사용)
+
+
+class MotorIn(BaseModel):
+    mode: str = "travel"             # travel(주행) / hoist(권상)
+    mass_kg: float = 5000            # 총 질량(자중+하중)
+    speed_m_min: float = 120
+    accel_m_s2: float = 0.5
+    rolling_resistance: float = 0.015  # 주행저항계수 (휠/레일 0.01~0.02)
+    efficiency: float = 0.85
+    service_factor: float = 1.2
+
+
+class ConveyorIn(BaseModel):
+    belt_speed_m_min: float = 30
+    length_m: float = 20
+    moving_mass_kg: float = 400      # 벨트+롤러 등 이동부 질량
+    capacity_t_h: float = 30         # 반송 능력 (톤/시간)
+    lift_height_m: float = 0         # 양정(경사 상승고)
+    friction_coeff: float = 0.03
+    efficiency: float = 0.85
+    service_factor: float = 1.2
+
+
+class ChainIn(BaseModel):
+    load_kg: float = 1500            # 가반하중
+    carriage_weight_kg: float = 500
+    chain_count: int = 2             # 체인 줄수
+    dynamic_factor: float = 1.3
+    mbl_kn: float = 100              # 체인 1줄 최소파단하중
+    required_sf: float = 5.0
+    current_elongation_pct: float = 0.8   # 실측 신율
+    elongation_rate_pct_year: float = 0.3  # 신율 진행률 (측정 이력 기반)
+
+
+# ── 라이프사이클 설정 ──
+class PhaseIn(BaseModel):
+    code: str
+    name: str
+    seq: int = 0
+    description: str = ""
+
+
+class PhaseUpdate(BaseModel):
+    name: str | None = None
+    seq: int | None = None
+    description: str | None = None
+
+
+class ProcessIn(BaseModel):
+    phase_id: int
+    code: str
+    name: str
+    seq: int = 0
+    description: str = ""
+    module_key: str = ""
+
+
+class ProcessUpdate(BaseModel):
+    name: str | None = None
+    seq: int | None = None
+    description: str | None = None
+    module_key: str | None = None
+    phase_id: int | None = None
+
+
+# ── 견적 ──
+class QuotationItemOut(ORMModel):
+    id: int
+    line_no: int
+    name: str
+    spec: str
+    category: str
+    qty: float
+    unit_price: float
+    amount: float
+    errc: str
+    errc_note: str
+    remark: str
+
+
+class QuotationOut(ORMModel):
+    id: int
+    project: str
+    vendor: str
+    currency: str
+    received_date: date
+    total_amount: float
+    file_name: str
+    status: str
+    note: str
+    created_at: datetime
+
+
+class QuotationDetailOut(QuotationOut):
+    items: list[QuotationItemOut] = []
+
+
+class QuotationItemUpdate(BaseModel):
+    category: str | None = None
+    errc: str | None = None
+    errc_note: str | None = None
+
+
+# ── 이슈 ──
+class IssueIn(BaseModel):
+    equipment_id: int | None = None
+    phase: str = "SETUP"
+    domain: str
+    severity: str = "MID"
+    title: str
+    description: str = ""
+    owner: str = ""
+    due_date: date | None = None
+
+
+class IssueUpdate(BaseModel):
+    domain: str | None = None
+    severity: str | None = None
+    title: str | None = None
+    description: str | None = None
+    status: str | None = None
+    owner: str | None = None
+    due_date: date | None = None
+    resolution: str | None = None
+
+
+class IssueOut(ORMModel):
+    id: int
+    equipment_id: int | None
+    phase: str
+    domain: str
+    severity: str
+    title: str
+    description: str
+    status: str
+    owner: str
+    due_date: date | None
+    resolution: str
+    created_at: datetime
+    closed_at: datetime | None

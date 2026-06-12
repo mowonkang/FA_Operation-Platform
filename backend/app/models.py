@@ -336,3 +336,96 @@ class WorkflowStep(Base):
     done_at: Mapped[datetime | None] = mapped_column(DateTime)
 
     workflow: Mapped["Workflow"] = relationship(back_populates="steps")
+
+
+# ───────────────────────── 라이프사이클 마스터 (편집 가능) ─────────────────────────
+
+class LifecyclePhase(Base):
+    """대단계: 투자 → 제작 → 셋업 → 양산 → 폐기/이설. 사용자 추가·이름변경·순서변경 가능."""
+    __tablename__ = "lifecycle_phases"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    code: Mapped[str] = mapped_column(String(30), unique=True)
+    name: Mapped[str] = mapped_column(String(100))
+    seq: Mapped[int] = mapped_column(Integer, default=0)
+    description: Mapped[str] = mapped_column(Text, default="")
+
+    processes: Mapped[list["LifecycleProcess"]] = relationship(
+        back_populates="phase", order_by="LifecycleProcess.seq",
+        cascade="all, delete-orphan")
+
+
+class LifecycleProcess(Base):
+    """세부 프로세스(블럭). module_key 로 플랫폼 기능 블럭에 연결된다.
+
+    module_key 예: quotation / workflow:DR / params / issues / pm / bm / vision / fdc / parts / lessons
+    """
+    __tablename__ = "lifecycle_processes"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    phase_id: Mapped[int] = mapped_column(ForeignKey("lifecycle_phases.id"))
+    code: Mapped[str] = mapped_column(String(40))
+    name: Mapped[str] = mapped_column(String(100))
+    seq: Mapped[int] = mapped_column(Integer, default=0)
+    description: Mapped[str] = mapped_column(Text, default="")
+    module_key: Mapped[str] = mapped_column(String(50), default="")
+
+    phase: Mapped["LifecyclePhase"] = relationship(back_populates="processes")
+
+
+# ───────────────────────── 투자: 견적 분석 ─────────────────────────
+
+class Quotation(Base):
+    __tablename__ = "quotations"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project: Mapped[str] = mapped_column(String(200), index=True)   # 투자 프로젝트명
+    vendor: Mapped[str] = mapped_column(String(100))
+    model_id: Mapped[int | None] = mapped_column(ForeignKey("equipment_models.id"))
+    currency: Mapped[str] = mapped_column(String(10), default="KRW")
+    received_date: Mapped[date] = mapped_column(Date, default=date.today)
+    total_amount: Mapped[float] = mapped_column(Float, default=0)
+    file_name: Mapped[str] = mapped_column(String(200), default="")
+    status: Mapped[str] = mapped_column(String(20), default="RECEIVED")  # RECEIVED/ANALYZED/SELECTED/REJECTED
+    note: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    items: Mapped[list["QuotationItem"]] = relationship(
+        back_populates="quotation", cascade="all, delete-orphan")
+
+
+class QuotationItem(Base):
+    __tablename__ = "quotation_items"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    quotation_id: Mapped[int] = mapped_column(ForeignKey("quotations.id"))
+    line_no: Mapped[int] = mapped_column(Integer, default=0)
+    name: Mapped[str] = mapped_column(String(300))
+    spec: Mapped[str] = mapped_column(String(300), default="")
+    category: Mapped[str] = mapped_column(String(20), default="ETC")  # MECH/DRIVE/ELEC/CONTROL/SW/INSTALL/ETC
+    qty: Mapped[float] = mapped_column(Float, default=1)
+    unit_price: Mapped[float] = mapped_column(Float, default=0)
+    amount: Mapped[float] = mapped_column(Float, default=0)
+    errc: Mapped[str] = mapped_column(String(10), default="")  # ELIMINATE/RAISE/REDUCE/CREATE
+    errc_note: Mapped[str] = mapped_column(String(300), default="")
+    remark: Mapped[str] = mapped_column(String(300), default="")
+
+    quotation: Mapped["Quotation"] = relationship(back_populates="items")
+
+
+# ───────────────────────── 이슈 관리 (셋업 안정화 / 양산) ─────────────────────────
+
+class Issue(Base):
+    """설비(기구/전장/제어/인터락)·시스템(CIM/MCS/RTD)·안전·기타 이슈."""
+    __tablename__ = "issues"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    equipment_id: Mapped[int | None] = mapped_column(ForeignKey("equipments.id"))
+    phase: Mapped[str] = mapped_column(String(30), default="SETUP")   # 라이프사이클 phase code
+    domain: Mapped[str] = mapped_column(String(20))  # MECH/ELEC/CONTROL/INTERLOCK/CIM/MCS/RTD/SAFETY/ETC
+    severity: Mapped[str] = mapped_column(String(10), default="MID")  # HIGH/MID/LOW
+    title: Mapped[str] = mapped_column(String(300))
+    description: Mapped[str] = mapped_column(Text, default="")
+    status: Mapped[str] = mapped_column(String(20), default="OPEN")   # OPEN/IN_PROGRESS/CLOSED
+    owner: Mapped[str] = mapped_column(String(50), default="")
+    due_date: Mapped[date | None] = mapped_column(Date)
+    resolution: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+    equipment: Mapped["Equipment | None"] = relationship(lazy="joined")

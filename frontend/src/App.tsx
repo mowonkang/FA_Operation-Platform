@@ -11,10 +11,16 @@ import FDC from './pages/FDC'
 import Lessons from './pages/Lessons'
 import Workflows from './pages/Workflows'
 import Knowledge from './pages/Knowledge'
+import Lifecycle from './pages/Lifecycle'
+import Investment from './pages/Investment'
+import Issues from './pages/Issues'
 
 const menu = [
   { to: '/', label: '대시보드' },
+  { to: '/lifecycle', label: '라이프사이클 맵' },
+  { to: '/investment', label: '투자 (견적분석)' },
   { to: '/equipment', label: '설비 / 이력' },
+  { to: '/issues', label: '이슈 관리' },
   { to: '/pm', label: 'PM 표준 / 오더' },
   { to: '/bm', label: 'BM (고장정비)' },
   { to: '/vision', label: '비전 측정' },
@@ -50,6 +56,9 @@ export default function App() {
           <Route path="/engineering" element={<Engineering />} />
           <Route path="/fdc" element={<FDC />} />
           <Route path="/lessons" element={<Lessons />} />
+          <Route path="/lifecycle" element={<Lifecycle />} />
+          <Route path="/investment" element={<Investment />} />
+          <Route path="/issues" element={<Issues />} />
           <Route path="/workflows" element={<Workflows />} />
           <Route path="/knowledge" element={<Knowledge />} />
         </Routes>

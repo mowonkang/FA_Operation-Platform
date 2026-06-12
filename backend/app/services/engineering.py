@@ -117,6 +117,151 @@ def wire_rope_pro(p: "schemas.WireRopeProIn") -> dict:
     }
 
 
+STD_MOTORS_KW = [0.4, 0.75, 1.5, 2.2, 3.7, 5.5, 7.5, 11, 15, 18.5, 22, 30, 37, 45, 55, 75, 90, 110]
+
+
+def _std_motor(kw: float) -> float | None:
+    for m in STD_MOTORS_KW:
+        if m >= kw:
+            return m
+    return None
+
+
+def motor_capacity(p: "schemas.MotorIn") -> dict:
+    """주행/권상 모터 용량 산정.
+
+    주행: F = m·g·μ(주행저항) + m·a(가속),  P = F·v/η
+    권상: P = m·g·v/η (+ 가속분)
+    서비스팩터를 곱해 표준 모터 용량을 선정한다.
+    """
+    g = 9.81
+    v = p.speed_m_min / 60.0
+    if p.mode == "hoist":
+        f_steady = p.mass_kg * g
+        f_accel = p.mass_kg * p.accel_m_s2
+    else:
+        f_steady = p.mass_kg * g * p.rolling_resistance
+        f_accel = p.mass_kg * p.accel_m_s2
+    p_steady = f_steady * v / max(p.efficiency, 1e-6) / 1000.0
+    p_peak = (f_steady + f_accel) * v / max(p.efficiency, 1e-6) / 1000.0
+    p_required = max(p_steady * p.service_factor, p_peak)
+    std = _std_motor(p_required)
+
+    curve = []
+    for spd in range(20, 261, 20):
+        vv = spd / 60.0
+        ps = f_steady * vv / max(p.efficiency, 1e-6) / 1000.0
+        pk = (f_steady + f_accel) * vv / max(p.efficiency, 1e-6) / 1000.0
+        curve.append({"x": spd, "steady_kw": round(ps, 2),
+                      "required_kw": round(max(ps * p.service_factor, pk), 2)})
+
+    return {
+        "mode": p.mode,
+        "steady_kw": round(p_steady, 2),
+        "peak_kw": round(p_peak, 2),
+        "required_kw": round(p_required, 2),
+        "recommended_motor_kw": std,
+        "judgment": "OK" if std else "NG",
+        "curves": {"power_vs_speed": curve},
+        "basis": (
+            f"{'권상: F=mg' if p.mode == 'hoist' else f'주행: F=mg×μ({p.rolling_resistance})'}"
+            f"={f_steady / 1000:.2f}kN, 가속분 m×a({p.accel_m_s2}m/s²)={f_accel / 1000:.2f}kN. "
+            f"정상 {p_steady:.2f}kW, 피크 {p_peak:.2f}kW, SF {p.service_factor} → 필요 {p_required:.2f}kW. "
+            f"인버터 구동 시 피크는 모터 과부하율(150%/60s)로 흡수 가능 여부 별도 확인. "
+            f"권상용은 제동저항·브레이크 토크(정격 1.5배) 함께 검토."
+        ),
+    }
+
+
+def conveyor_power(p: "schemas.ConveyorIn") -> dict:
+    """벨트 컨베이어 구동 출력 (간이식, CEMA 개념 기반).
+
+    P = [μ·g·(이동질량) ·v + Q·g·H] / η
+    Q(반송율 kg/s) = capacity_t_h × 1000/3600
+    """
+    g = 9.81
+    v = p.belt_speed_m_min / 60.0
+    q_kg_s = p.capacity_t_h * 1000.0 / 3600.0
+    load_on_belt = q_kg_s * p.length_m / max(v, 1e-6)  # 벨트 위 체류 화물질량
+    moving_mass = p.moving_mass_kg + load_on_belt
+    p_friction = p.friction_coeff * moving_mass * g * v / 1000.0
+    p_lift = q_kg_s * g * p.lift_height_m / 1000.0
+    p_required = (p_friction + p_lift) / max(p.efficiency, 1e-6) * p.service_factor
+    std = _std_motor(p_required)
+
+    curve = []
+    for cap in range(0, int(p.capacity_t_h * 2) + 1, max(int(p.capacity_t_h / 5), 1)):
+        qq = cap * 1000.0 / 3600.0
+        lm = p.moving_mass_kg + qq * p.length_m / max(v, 1e-6)
+        pf = p.friction_coeff * lm * g * v / 1000.0
+        pl = qq * g * p.lift_height_m / 1000.0
+        curve.append({"x": cap, "required_kw": round((pf + pl) / max(p.efficiency, 1e-6) * p.service_factor, 2)})
+
+    return {
+        "friction_kw": round(p_friction, 2),
+        "lift_kw": round(p_lift, 2),
+        "required_kw": round(p_required, 2),
+        "recommended_motor_kw": std,
+        "load_on_belt_kg": round(load_on_belt, 1),
+        "judgment": "OK" if std else "NG",
+        "curves": {"power_vs_capacity": curve},
+        "basis": (
+            f"마찰분 = μ({p.friction_coeff})×({p.moving_mass_kg}+체류화물{load_on_belt:.0f})kg×g×v({v:.2f}m/s) "
+            f"= {p_friction:.2f}kW, 양정분 = Q({q_kg_s:.2f}kg/s)×g×H({p.lift_height_m}m) = {p_lift:.2f}kW. "
+            f"효율 {p.efficiency}, SF {p.service_factor}. 정밀 설계는 CEMA Belt Book/제조사 프로그램으로 검증."
+        ),
+    }
+
+
+def chain_life(p: "schemas.ChainIn") -> dict:
+    """리프 체인 안전율 + 신율 추세 기반 잔여수명.
+
+    SF = MBL / 줄당 장력 (법규: 화물 직접지지 체인 5 이상)
+    신율 한계: 2%(교체 계획) / 3%(즉시 교체) — FLTA/SAFed 기준
+    """
+    g = 9.81
+    line_load_kn = (p.load_kg + p.carriage_weight_kg) * g * p.dynamic_factor \
+        / max(p.chain_count, 1) / 1000.0
+    sf = p.mbl_kn / line_load_kn if line_load_kn > 0 else float("inf")
+    sf_pass = sf >= p.required_sf
+
+    rate = max(p.elongation_rate_pct_year, 1e-6)
+    to_plan = max((2.0 - p.current_elongation_pct) / rate, 0)
+    to_limit = max((3.0 - p.current_elongation_pct) / rate, 0)
+    strength_loss = round(p.current_elongation_pct / 3.0 * 15.0, 1)  # 3%≈15% 손실 비례 근사
+
+    curve = []
+    for yr in range(0, 11):
+        e = p.current_elongation_pct + rate * yr
+        curve.append({"x": yr, "elongation_pct": round(min(e, 4.0), 2)})
+
+    if p.current_elongation_pct >= 3.0:
+        judgment = "NG"
+    elif p.current_elongation_pct >= 2.0 or not sf_pass:
+        judgment = "CHECK" if sf_pass else "NG"
+    else:
+        judgment = "OK" if to_plan > 0.5 else "CHECK"
+
+    return {
+        "line_load_kn": round(line_load_kn, 2),
+        "safety_factor": round(sf, 2),
+        "sf_pass": sf_pass,
+        "current_elongation_pct": p.current_elongation_pct,
+        "estimated_strength_loss_pct": strength_loss,
+        "years_to_plan_2pct": round(to_plan, 1),
+        "years_to_limit_3pct": round(to_limit, 1),
+        "judgment": judgment,
+        "curves": {"elongation_projection": curve},
+        "basis": (
+            f"줄당 하중 = ({p.load_kg}+{p.carriage_weight_kg})kg×g×동적계수{p.dynamic_factor}÷{p.chain_count}줄 "
+            f"= {line_load_kn:.2f}kN, SF = MBL {p.mbl_kn}kN ÷ 하중 = {sf:.2f} (기준 {p.required_sf}). "
+            f"신율 {p.current_elongation_pct}% + {p.elongation_rate_pct_year}%/년 → 2%(교체계획) "
+            f"{to_plan:.1f}년, 3%(즉시교체) {to_limit:.1f}년. 신율 3% = 강도 약 15% 손실(FLTA). "
+            f"무윤활 시 신율 진행 3~5배 가속 — 급유 주기 준수."
+        ),
+    }
+
+
 def wire_rope_life(p: schemas.WireRopeIn) -> dict:
     """와이어로프 안전율 및 굽힘피로 수명 예측.
 

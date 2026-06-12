@@ -230,12 +230,25 @@ def run():
                               status="DONE" if i <= 4 else "PENDING",
                               owner="최정비" if i <= 4 else ""))
 
+    # 데모 이슈 (셋업 안정화)
+    db.add_all([
+        m.Issue(equipment_id=eqs[5].id, phase="SETUP", domain="INTERLOCK", severity="HIGH",
+                title="컨베이어 합류부 인터락 누락 — 동시 진입 가능",
+                description="합류 컨베이어 2개 라인 동시 기동 시 충돌 가능 구간 발견", owner="이설치"),
+        m.Issue(equipment_id=eqs[5].id, phase="SETUP", domain="MCS", severity="MID",
+                title="MCS 반송 지시 중복 수신 시 미처리", owner="박제어",
+                description="동일 Carrier ID 중복 지시에서 설비 Hold — 재현 로그 확보"),
+        m.Issue(equipment_id=eqs[3].id, phase="PRODUCTION", domain="CONTROL", severity="LOW",
+                title="OHT 커브 구간 감속 파라미터 미세 튜닝 필요", status="IN_PROGRESS", owner="왕정비"),
+    ])
+
     db.commit()
     print("시드 완료")
 
-    # 지식 DB 시드
-    from . import knowledge_seed
+    # 지식 DB / 라이프사이클 시드
+    from . import knowledge_seed, lifecycle_seed
     knowledge_seed.run()
+    lifecycle_seed.run()
 
 
 if __name__ == "__main__":
