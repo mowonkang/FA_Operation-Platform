@@ -45,8 +45,12 @@ def stats(db: Session = Depends(get_db)):
 @router.get("", response_model=list[schemas.IssueOut])
 def list_issues(domain: str | None = None, status: str | None = None,
                 phase: str | None = None, equipment_id: int | None = None,
-                db: Session = Depends(get_db)):
+                site_id: int | None = None, db: Session = Depends(get_db)):
     q = db.query(models.Issue)
+    if site_id:
+        from sqlalchemy import or_
+        q = q.outerjoin(models.Equipment).filter(or_(
+            models.Equipment.site_id == site_id, models.Issue.equipment_id.is_(None)))
     if domain:
         q = q.filter(models.Issue.domain == domain)
     if status:

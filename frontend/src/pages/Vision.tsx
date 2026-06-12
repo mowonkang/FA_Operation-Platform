@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ReferenceLine, ResponsiveContainer } from 'recharts'
 import { api, judgeClass } from '../api'
+import { useSite, sq } from '../site'
 
 /* ───────────────── 정기 상태감시 (촬영 기반 이상감지) ───────────────── */
 
@@ -20,12 +21,13 @@ function MonitorTab() {
   const [msg, setMsg] = useState('')
   const [err, setErr] = useState('')
 
+  const { site } = useSite()
   const load = () => {
     api.get('/vision-monitor/types').then(setTypes).catch(() => {})
-    api.get('/vision-monitor/points').then(setPoints).catch(() => {})
-    api.get('/equipments').then(setEqs).catch(() => {})
+    api.get(`/vision-monitor/points${sq(site)}`).then(setPoints).catch(() => {})
+    api.get(`/equipments${sq(site)}`).then(setEqs).catch(() => {})
   }
-  useEffect(load, [])
+  useEffect(load, [site])
 
   const open = async (p: any) => {
     setSel(p)
@@ -69,6 +71,38 @@ function MonitorTab() {
     t: s.captured_at?.slice(5, 10), score: s.score, judgment: s.judgment,
   }))
   const latest = shots[shots.length - 1]
+
+  // ── 순회(패트롤) 동영상 ──
+  const [patrolFile, setPatrolFile] = useState<File | null>(null)
+  const [patrolBusy, setPatrolBusy] = useState(false)
+  const [patrolReport, setPatrolReport] = useState<any>(null)
+  const [patrols, setPatrols] = useState<any[]>([])
+  useEffect(() => {
+    api.get(`/vision-monitor/patrols${sq(site)}`).then(setPatrols).catch(() => {})
+  }, [site])
+
+  const runPatrol = async () => {
+    if (!patrolFile) return
+    setPatrolBusy(true); setErr(''); setPatrolReport(null)
+    try {
+      const fd = new FormData()
+      fd.append('file', patrolFile)
+      if (site) fd.append('site_id', site)
+      setPatrolReport(await api.upload('/vision-monitor/patrol', fd))
+      setPatrolFile(null)
+      load()
+      api.get(`/vision-monitor/patrols${sq(site)}`).then(setPatrols).catch(() => {})
+    } catch (e: any) { setErr(e.message) } finally { setPatrolBusy(false) }
+  }
+
+  const demoPatrol = async () => {
+    setPatrolBusy(true); setErr('')
+    try {
+      setPatrolReport(await api.post('/vision-monitor/patrol-demo'))
+      load()
+      api.get('/vision-monitor/patrols').then(setPatrols).catch(() => {})
+    } catch (e: any) { setErr(e.message) } finally { setPatrolBusy(false) }
+  }
 
   return (
     <div>
@@ -116,6 +150,87 @@ function MonitorTab() {
           {err && <div className="error">{err}</div>}
         </div>
       )}
+
+      {/* 순회 동영상 분석 */}
+      <div className="panel" style={{ borderLeft: '4px solid var(--accent)' }}>
+        <div className="panel-title">
+          🎥 순회 동영상 분석
+          <span className="hint">이동하며 촬영한 영상 1개로 여러 포인트 자동 매칭·판정 — 미촬영 포인트도 리포트</span>
+        </div>
+        <input type="file" accept="video/*" onChange={(e) => setPatrolFile(e.target.files?.[0] ?? null)} />{' '}
+        <button disabled={!patrolFile || patrolBusy} onClick={runPatrol}>
+          {patrolBusy ? '분석중…' : '순회 영상 분석'}
+        </button>{' '}
+        <button className="secondary" disabled={patrolBusy} onClick={demoPatrol}>데모 순회 실행</button>
+        {err && <div className="error">{err}</div>}
+
+        {patrolReport && (
+          <div className="result-box">
+            <div className="big">
+              순회 #{patrolReport.run.id} — 커버 {patrolReport.run.points_covered}곳 /
+              {' '}NG <span style={{ color: 'var(--ng)' }}>{patrolReport.run.ng_count}</span> ·
+              CHECK <span style={{ color: 'var(--warn)' }}>{patrolReport.run.check_count}</span> ·
+              미촬영 {(patrolReport.run.missed_points ?? []).length}곳
+              <span className="muted" style={{ marginLeft: 8 }}>
+                (프레임 {patrolReport.run.frames_total}, 이동장면 {patrolReport.run.frames_unmatched})
+              </span>
+            </div>
+            <table style={{ marginTop: 8 }}>
+              <thead><tr><th>포인트</th><th>유형</th><th>매칭</th><th>점수</th><th>판정</th><th>검출 내용</th><th>이슈</th></tr></thead>
+              <tbody>
+                {patrolReport.shots.map((s: any) => (
+                  <tr key={s.id}>
+                    <td>{s.point_name}</td>
+                    <td><span className="badge info">{s.target_type}</span></td>
+                    <td className="num">{s.detail?.match_confidence}</td>
+                    <td className="num">{s.score}</td>
+                    <td><span className={judgeClass(s.judgment)}>{s.judgment}</span></td>
+                    <td>{(s.findings ?? []).join('; ') || '-'}</td>
+                    <td>{s.issue_id ? `#${s.issue_id}` : '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {(patrolReport.run.missed_points ?? []).length > 0 && (
+              <p style={{ color: 'var(--warn)', marginBottom: 0 }}>
+                ⚠ 미촬영: {(patrolReport.run.missed_points ?? []).map((m: any) => m.name).join(', ')} — 재순회 필요
+              </p>
+            )}
+            <div className="row" style={{ marginTop: 8 }}>
+              {patrolReport.shots.filter((s: any) => s.judgment !== 'OK').map((s: any) => (
+                <div key={s.id} style={{ maxWidth: 300 }}>
+                  <img src={s.overlay_url} style={{ width: '100%', borderRadius: 6, border: '1px solid var(--border)' }} />
+                  <div className="muted">{s.point_name} — {s.judgment}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {patrols.length > 0 && (
+          <>
+            <h3>순회 이력</h3>
+            <table>
+              <thead><tr><th>#</th><th>일시</th><th>수행</th><th>커버</th><th>NG</th><th>CHECK</th><th>미촬영</th><th>프레임</th></tr></thead>
+              <tbody>
+                {patrols.map((r) => (
+                  <tr key={r.id} className="clickable"
+                    onClick={() => api.get(`/vision-monitor/patrols/${r.id}`).then(setPatrolReport)}>
+                    <td>{r.id}</td>
+                    <td>{r.started_at?.slice(0, 16).replace('T', ' ')}</td>
+                    <td>{r.performed_by || '-'}</td>
+                    <td className="num">{r.points_covered}</td>
+                    <td className="num">{r.ng_count > 0 ? <span className="badge ng">{r.ng_count}</span> : 0}</td>
+                    <td className="num">{r.check_count}</td>
+                    <td className="num">{(r.missed_points ?? []).length}</td>
+                    <td className="num">{r.frames_total}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        )}
+      </div>
 
       <table>
         <thead><tr><th>유형</th><th>포인트</th><th>설비</th><th>주기</th><th>회차</th><th>최근 판정</th><th>점수</th><th>차기 촬영</th></tr></thead>

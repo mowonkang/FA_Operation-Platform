@@ -1,4 +1,7 @@
+import { useEffect, useState } from 'react'
 import { NavLink, Route, Routes, useLocation } from 'react-router-dom'
+import { SiteCtx } from './site'
+import { api } from './api'
 import Dashboard from './pages/Dashboard'
 import Equipment from './pages/Equipment'
 import EquipmentDetail from './pages/EquipmentDetail'
@@ -43,7 +46,7 @@ const groups: { name: string; items: { to: string; label: string; ico: string }[
     ],
   },
   {
-    name: '엔지니어링',
+    name: '전사 공통 표준',
     items: [
       { to: '/engineering', label: '계산 툴 (PRO)', ico: 'ƒ' },
       { to: '/knowledge', label: '지식 DB·표준', ico: '§' },
@@ -60,7 +63,13 @@ export default function App() {
   const loc = useLocation()
   const base = '/' + (loc.pathname.split('/')[1] ?? '')
   const group = groups.find((g) => g.items.some((i) => i.to === base))
+  const [site, setSite] = useState(localStorage.getItem('fa_site') ?? '')
+  const [sites, setSites] = useState<any[]>([])
+  useEffect(() => { api.get('/sites').then(setSites).catch(() => {}) }, [])
+  const pickSite = (v: string) => { setSite(v); localStorage.setItem('fa_site', v) }
+  const isGlobal = group?.name === '전사 공통 표준'
   return (
+    <SiteCtx.Provider value={{ site, setSite: pickSite }}>
     <div className="layout">
       <nav className="sidebar">
         <div className="brand">
@@ -84,7 +93,15 @@ export default function App() {
           <h1>{titleMap[base] ?? 'FA Operation Platform'}</h1>
           {group && <span className="crumb">{group.name}</span>}
           <div className="right">
-            <span className="badge gray">KR1 한국 본사</span>
+            {isGlobal
+              ? <span className="badge info">전사 공통 — 사이트 무관</span>
+              : (
+                <select value={site} onChange={(e) => pickSite(e.target.value)}
+                  style={{ fontWeight: 600 }}>
+                  <option value="">전체 사이트</option>
+                  {sites.map((s: any) => <option key={s.id} value={s.id}>{s.code} {s.name}</option>)}
+                </select>
+              )}
             <span>{new Date().toLocaleDateString('ko-KR')}</span>
           </div>
         </div>
@@ -109,5 +126,6 @@ export default function App() {
         </div>
       </main>
     </div>
+    </SiteCtx.Provider>
   )
 }

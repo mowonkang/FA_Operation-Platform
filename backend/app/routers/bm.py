@@ -8,8 +8,11 @@ router = APIRouter(prefix="/bm", tags=["bm"])
 
 
 @router.get("/reports", response_model=list[schemas.BMReportOut])
-def list_reports(status: str | None = None, equipment_id: int | None = None, db: Session = Depends(get_db)):
+def list_reports(status: str | None = None, equipment_id: int | None = None,
+                 site_id: int | None = None, db: Session = Depends(get_db)):
     q = db.query(models.BMReport)
+    if site_id:
+        q = q.join(models.Equipment).filter(models.Equipment.site_id == site_id)
     if status:
         q = q.filter(models.BMReport.status == status)
     if equipment_id:

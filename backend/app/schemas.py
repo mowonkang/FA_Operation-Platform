@@ -440,9 +440,25 @@ class InspectionPointOut(ORMModel):
     equipment: EquipmentOut
 
 
+class PatrolRunOut(ORMModel):
+    id: int
+    site_id: int | None
+    file_name: str
+    performed_by: str
+    started_at: datetime
+    frames_total: int
+    frames_unmatched: int
+    points_covered: int
+    ng_count: int
+    check_count: int
+    missed_points: list | None
+    note: str
+
+
 class InspectionShotOut(ORMModel):
     id: int
     point_id: int
+    patrol_run_id: int | None
     captured_at: datetime
     image_path: str
     overlay_path: str

@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
+import { useSite, sq } from '../site'
 
 const STATUS_LABEL: Record<string, string> = { OPEN: '미결', IN_PROGRESS: '진행중', CLOSED: '완료' }
 
 export default function Issues() {
+  const { site } = useSite()
   const [domains, setDomains] = useState<any[]>([])
   const [stats, setStats] = useState<any>(null)
   const [list, setList] = useState<any[]>([])
@@ -16,10 +18,10 @@ export default function Issues() {
   const load = () => {
     api.get('/issues/domains').then(setDomains)
     api.get('/issues/stats').then(setStats)
-    api.get(`/issues${filter ? `?domain=${filter}` : ''}`).then(setList)
-    api.get('/equipments').then(setEqs)
+    api.get(sq(site, `/issues${filter ? `?domain=${filter}` : ''}`)).then(setList)
+    api.get(`/equipments${sq(site)}`).then(setEqs)
   }
-  useEffect(load, [filter])
+  useEffect(load, [filter, site])
 
   const create = async () => {
     await api.post('/issues', {

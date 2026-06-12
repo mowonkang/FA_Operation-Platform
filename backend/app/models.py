@@ -457,11 +457,31 @@ class InspectionPoint(Base):
         back_populates="point", order_by="InspectionShot.captured_at")
 
 
+class PatrolRun(Base):
+    """순회 촬영 회차 — 한 동영상으로 여러 포인트를 커버하는 실사용 방식."""
+    __tablename__ = "patrol_runs"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    site_id: Mapped[int | None] = mapped_column(ForeignKey("sites.id"))
+    file_name: Mapped[str] = mapped_column(String(200), default="")
+    performed_by: Mapped[str] = mapped_column(String(50), default="")
+    started_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    frames_total: Mapped[int] = mapped_column(Integer, default=0)
+    frames_unmatched: Mapped[int] = mapped_column(Integer, default=0)
+    points_covered: Mapped[int] = mapped_column(Integer, default=0)
+    ng_count: Mapped[int] = mapped_column(Integer, default=0)
+    check_count: Mapped[int] = mapped_column(Integer, default=0)
+    missed_points: Mapped[list | None] = mapped_column(JSON)
+    note: Mapped[str] = mapped_column(String(300), default="")
+
+    site: Mapped["Site | None"] = relationship(lazy="joined")
+
+
 class InspectionShot(Base):
     """촬영 회차 — 분석 결과·오버레이·연계 이슈."""
     __tablename__ = "inspection_shots"
     id: Mapped[int] = mapped_column(primary_key=True)
     point_id: Mapped[int] = mapped_column(ForeignKey("inspection_points.id"), index=True)
+    patrol_run_id: Mapped[int | None] = mapped_column(ForeignKey("patrol_runs.id"), index=True)
     captured_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     image_path: Mapped[str] = mapped_column(String(300), default="")
     overlay_path: Mapped[str] = mapped_column(String(300), default="")

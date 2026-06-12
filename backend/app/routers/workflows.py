@@ -23,8 +23,14 @@ def templates():
 
 @router.get("", response_model=list[schemas.WorkflowOut])
 def list_workflows(wf_type: str | None = None, status: str | None = None,
-                   equipment_id: int | None = None, db: Session = Depends(get_db)):
+                   equipment_id: int | None = None, site_id: int | None = None,
+                   db: Session = Depends(get_db)):
     q = db.query(models.Workflow)
+    if site_id:
+        from sqlalchemy import or_
+        q = q.outerjoin(models.Equipment, models.Workflow.equipment_id == models.Equipment.id)\
+             .filter(or_(models.Equipment.site_id == site_id,
+                         models.Workflow.equipment_id.is_(None)))
     if wf_type:
         q = q.filter(models.Workflow.wf_type == wf_type)
     if status:

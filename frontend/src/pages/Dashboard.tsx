@@ -5,6 +5,7 @@ import {
   PieChart, Pie, Cell, Legend, ComposedChart, Line,
 } from 'recharts'
 import { api } from '../api'
+import { useSite, sq } from '../site'
 
 const PM_COLORS: Record<string, string> = {
   DONE: '#15803d', PLANNED: '#1c6fd4', IN_PROGRESS: '#b45309', OVERDUE: '#b91c1c',
@@ -18,15 +19,16 @@ export default function Dashboard() {
   const [issues, setIssues] = useState<any[]>([])
   const [shortage, setShortage] = useState<any[]>([])
 
+  const { site } = useSite()
   useEffect(() => {
-    api.get('/dashboard').then(setD).catch((e) => setErr(String(e.message ?? e)))
-    api.get('/pm/orders?status=OVERDUE').then(setOverdue).catch(() => {})
-    api.get('/fdc/alarms?status=OPEN').then(setAlarms).catch(() => {})
-    api.get('/issues?status=OPEN')
+    api.get(`/dashboard${sq(site)}`).then(setD).catch((e) => setErr(String(e.message ?? e)))
+    api.get(sq(site, '/pm/orders?status=OVERDUE')).then(setOverdue).catch(() => {})
+    api.get(sq(site, '/fdc/alarms?status=OPEN')).then(setAlarms).catch(() => {})
+    api.get(sq(site, '/issues?status=OPEN'))
       .then((l) => setIssues(l.filter((i: any) => i.severity === 'HIGH'))).catch(() => {})
     api.get('/parts/recommendation')
       .then((r) => setShortage(r.filter((p: any) => p.shortage > 0))).catch(() => {})
-  }, [])
+  }, [site])
 
   if (err) return (
     <div className="panel">

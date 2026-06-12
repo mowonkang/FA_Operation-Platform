@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api, judgeClass } from '../api'
+import { useSite, sq } from '../site'
 
 export default function PM() {
   const [standards, setStandards] = useState<any[]>([])
@@ -11,12 +12,13 @@ export default function PM() {
   const [performer, setPerformer] = useState('')
   const [msg, setMsg] = useState('')
 
+  const { site } = useSite()
   const load = () => {
     api.get(`/pm/standards${modelFilter ? `?model_id=${modelFilter}` : ''}`).then(setStandards)
-    api.get('/pm/orders').then(setOrders)
+    api.get(sq(site, '/pm/orders')).then(setOrders)
     api.get('/models').then(setModels)
   }
-  useEffect(load, [modelFilter])
+  useEffect(load, [modelFilter, site])
 
   const startPerform = async (order: any) => {
     const stds = await api.get(`/pm/standards?model_id=${order.equipment.model_id}`)

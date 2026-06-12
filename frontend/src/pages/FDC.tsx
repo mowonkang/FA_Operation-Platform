@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ReferenceLine, ResponsiveContainer } from 'recharts'
 import { api } from '../api'
+import { useSite, sq } from '../site'
 
 export default function FDC() {
   const [sensors, setSensors] = useState<any[]>([])
@@ -9,14 +10,15 @@ export default function FDC() {
   const [readings, setReadings] = useState<any[]>([])
   const [msg, setMsg] = useState('')
 
+  const { site } = useSite()
   const load = () => {
-    api.get('/fdc/sensors').then((s) => {
+    api.get(`/fdc/sensors${sq(site)}`).then((s) => {
       setSensors(s)
       if (s.length && sensorId === null) setSensorId(s[0].id)
     })
-    api.get('/fdc/alarms').then(setAlarms)
+    api.get(sq(site, '/fdc/alarms')).then(setAlarms)
   }
-  useEffect(load, [])
+  useEffect(load, [site])
   useEffect(() => {
     if (sensorId != null) {
       api.get(`/fdc/readings?sensor_id=${sensorId}&limit=200`).then((rs) =>

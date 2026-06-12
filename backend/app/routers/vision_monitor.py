@@ -58,8 +58,11 @@ def types():
 
 
 @router.get("/points")
-def list_points(equipment_id: int | None = None, db: Session = Depends(get_db)):
+def list_points(equipment_id: int | None = None, site_id: int | None = None,
+                db: Session = Depends(get_db)):
     q = db.query(models.InspectionPoint).filter(models.InspectionPoint.active.is_(True))
+    if site_id:
+        q = q.join(models.Equipment).filter(models.Equipment.site_id == site_id)
     if equipment_id:
         q = q.filter(models.InspectionPoint.equipment_id == equipment_id)
     out = []
@@ -213,6 +216,172 @@ def deactivate_point(point_id: int, db: Session = Depends(get_db)):
     p.active = False
     db.commit()
     return {"ok": True}
+
+
+# ───────────────────────── 순회(패트롤) 동영상 ─────────────────────────
+
+def _persist_patrol(db: Session, report: dict, points_by_id: dict,
+                    site_id: int | None, file_name: str, performed_by: str) -> models.PatrolRun:
+    """순회 분석 결과를 회차·이슈로 적재."""
+    run = models.PatrolRun(
+        site_id=site_id, file_name=file_name, performed_by=performed_by,
+        frames_total=report["frames_total"], frames_unmatched=report["frames_unmatched"],
+        points_covered=len(report["results"]),
+        ng_count=sum(1 for r in report["results"] if r["analysis"]["judgment"] == "NG"),
+        check_count=sum(1 for r in report["results"] if r["analysis"]["judgment"] == "CHECK"),
+        missed_points=report["missed_points"],
+    )
+    db.add(run)
+    db.flush()
+    for r in report["results"]:
+        p = points_by_id[r["point_id"]]
+        a = r["analysis"]
+        shot = models.InspectionShot(
+            point_id=p.id, patrol_run_id=run.id, source="VIDEO",
+            image_path=_save(r["shot_bytes"]), overlay_path=_save(a["overlay_png"]),
+            score=a["score"], judgment=a["judgment"], findings=a["findings"],
+            detail={**a["detail"], "match_confidence": r["match_confidence"],
+                    "frame_index": r["frame_index"]},
+        )
+        db.add(shot)
+        db.flush()
+        if a["judgment"] in ("NG", "CHECK"):
+            issue = models.Issue(
+                equipment_id=p.equipment_id, phase="PRODUCTION",
+                domain=DOMAIN_BY_TYPE.get(p.target_type, "MECH"),
+                severity="HIGH" if a["judgment"] == "NG" else "MID",
+                title=f"[순회감시 {a['judgment']}] {p.name} — "
+                      f"{a['findings'][0] if a['findings'] else '변화 감지'}",
+                description=f"순회 #{run.id} (프레임 {r['frame_index']}, "
+                            f"매칭 신뢰도 {r['match_confidence']}), 이상점수 {a['score']}",
+                status="OPEN")
+            db.add(issue)
+            db.flush()
+            shot.issue_id = issue.id
+            db.add(models.LifecycleEvent(
+                equipment_id=p.equipment_id,
+                stage="BM" if a["judgment"] == "NG" else "PM",
+                title=f"순회감시 {a['judgment']}: {p.name}",
+                detail="; ".join(a["findings"]), performed_by="PATROL"))
+    db.commit()
+    db.refresh(run)
+    return run
+
+
+@router.post("/patrol")
+async def patrol(
+    file: UploadFile = File(...),
+    site_id: int | None = Form(None),
+    performed_by: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    """순회 동영상 분석 — 영상 하나로 여러 포인트를 자동 매칭·판정.
+
+    이동하며 촬영한 영상의 프레임을 등록 포인트의 기준 이미지와 자동 매칭하고
+    (정합 NCC ≥ 0.55), 포인트별 최적 프레임으로 이상 분석을 수행한다.
+    커버되지 않은 포인트는 '미촬영'으로 리포트한다.
+    """
+    q = db.query(models.InspectionPoint).filter(
+        models.InspectionPoint.active.is_(True),
+        models.InspectionPoint.baseline_path != "")
+    if site_id:
+        q = q.join(models.Equipment).filter(models.Equipment.site_id == site_id)
+    pts = q.all()
+    if not pts:
+        raise HTTPException(400, "기준 이미지가 등록된 촬영 포인트가 없습니다")
+    points_payload = []
+    points_by_id = {}
+    for p in pts:
+        if not os.path.exists(p.baseline_path):
+            continue
+        points_payload.append({"id": p.id, "name": p.name, "target_type": p.target_type,
+                               "params": p.params,
+                               "baseline": open(p.baseline_path, "rb").read()})
+        points_by_id[p.id] = p
+    data = await file.read()
+    try:
+        report = vm.analyze_patrol(data, points_payload)
+    except (RuntimeError, ValueError) as e:
+        raise HTTPException(400, str(e))
+    run = _persist_patrol(db, report, points_by_id, site_id,
+                          file.filename or "patrol.mp4", performed_by)
+    return _patrol_report(db, run)
+
+
+@router.get("/patrols", response_model=list[schemas.PatrolRunOut])
+def list_patrols(site_id: int | None = None, db: Session = Depends(get_db)):
+    q = db.query(models.PatrolRun)
+    if site_id:
+        q = q.filter(models.PatrolRun.site_id == site_id)
+    return q.order_by(models.PatrolRun.started_at.desc()).all()
+
+
+def _patrol_report(db: Session, run: models.PatrolRun) -> dict:
+    shots = (db.query(models.InspectionShot)
+             .filter(models.InspectionShot.patrol_run_id == run.id).all())
+    return {
+        "run": schemas.PatrolRunOut.model_validate(run).model_dump(),
+        "shots": [{
+            **schemas.InspectionShotOut.model_validate(s).model_dump(),
+            "point_name": s.point.name, "target_type": s.point.target_type,
+            "overlay_url": _url(s.overlay_path),
+        } for s in shots],
+    }
+
+
+@router.get("/patrols/{run_id}")
+def get_patrol(run_id: int, db: Session = Depends(get_db)):
+    run = db.get(models.PatrolRun, run_id)
+    if not run:
+        raise HTTPException(404, "patrol run not found")
+    return _patrol_report(db, run)
+
+
+@router.post("/patrol-demo")
+def patrol_demo(db: Session = Depends(get_db)):
+    """데모: 합성 순회 영상(포인트 3곳 + 이동 장면) 생성 후 분석 — 1곳은 의도적으로 미촬영."""
+    pts = db.query(models.InspectionPoint).filter(models.InspectionPoint.active.is_(True)).all()
+    if len(pts) < 4:
+        raise HTTPException(400, "데모 포인트가 필요합니다 — 먼저 seed-demo 를 실행하세요")
+    try:
+        import cv2
+    except ImportError:
+        raise HTTPException(400, "opencv-python-headless 설치가 필요합니다")
+    import numpy as np
+    from PIL import Image as PImage, ImageDraw
+    from ..services.vision_demo import _bolt, _wire, _rail, _noise, _png
+
+    def walk_frame(i):
+        img = PImage.new("RGB", (560, 420), (118 + i * 2, 122, 128))
+        d = ImageDraw.Draw(img)
+        for k in range(9):
+            d.rectangle([k * 60 + i * 7, 0, k * 60 + 24 + i * 7, 420], fill=(95, 99, 105))
+        return img
+
+    # 순회 시나리오: 이동 → 볼트(이상) → 이동 → 와이어(정상) → 이동 → 레일(이상) → 이동
+    seq = [walk_frame(0), walk_frame(1),
+           _noise(_bolt(36), shift=(3, 2)), _noise(_bolt(36), shift=(2, 3)),
+           walk_frame(2), walk_frame(3),
+           _noise(_wire(0), shift=(1, -2)), _noise(_wire(0), shift=(-1, 1)),
+           walk_frame(4),
+           _noise(_rail(8), shift=(2, 1)), _noise(_rail(8), shift=(1, 2)),
+           walk_frame(5)]
+    out_path = "/tmp/patrol_demo.mp4"
+    vw = cv2.VideoWriter(out_path, cv2.VideoWriter_fourcc(*"mp4v"), 2, (560, 420))
+    for f in seq:
+        vw.write(cv2.cvtColor(np.asarray(f), cv2.COLOR_RGB2BGR))
+    vw.release()
+
+    points_payload, points_by_id = [], {}
+    for p in pts:
+        if p.baseline_path and os.path.exists(p.baseline_path):
+            points_payload.append({"id": p.id, "name": p.name, "target_type": p.target_type,
+                                   "params": p.params,
+                                   "baseline": open(p.baseline_path, "rb").read()})
+            points_by_id[p.id] = p
+    report = vm.analyze_patrol(open(out_path, "rb").read(), points_payload, max_frames=24)
+    run = _persist_patrol(db, report, points_by_id, None, "patrol_demo.mp4", "데모")
+    return _patrol_report(db, run)
 
 
 # ───────────────────────── 데모 ─────────────────────────

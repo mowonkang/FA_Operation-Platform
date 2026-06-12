@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api'
+import { useSite, sq } from '../site'
 
 const STEP_STATUS = ['PENDING', 'IN_PROGRESS', 'DONE', 'NG', 'SKIP']
 const STEP_LABEL: Record<string, string> = {
@@ -8,6 +9,7 @@ const STEP_LABEL: Record<string, string> = {
 }
 
 export default function Workflows() {
+  const { site } = useSite()
   const [templates, setTemplates] = useState<any[]>([])
   const [list, setList] = useState<any[]>([])
   const [eqs, setEqs] = useState<any[]>([])
@@ -22,12 +24,12 @@ export default function Workflows() {
 
   const load = () => {
     api.get('/workflows/templates').then(setTemplates)
-    api.get('/workflows').then(setList)
-    api.get('/equipments').then(setEqs)
+    api.get(`/workflows${sq(site)}`).then(setList)
+    api.get(`/equipments${sq(site)}`).then(setEqs)
     api.get('/models').then(setModels)
     api.get('/sites').then(setSites)
   }
-  useEffect(load, [])
+  useEffect(load, [site])
 
   const open = async (id: number) => {
     setSel(await api.get(`/workflows/${id}`))

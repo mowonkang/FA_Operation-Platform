@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
+import { useSite, sq } from '../site'
 
 export default function BM() {
   const [reports, setReports] = useState<any[]>([])
@@ -8,12 +9,13 @@ export default function BM() {
   const [form, setForm] = useState({ equipment_id: '', symptom: '', reported_by: '' })
   const [edit, setEdit] = useState<any>(null)
 
+  const { site } = useSite()
   const load = () => {
-    api.get('/bm/reports').then(setReports)
-    api.get('/equipments').then(setEqs)
+    api.get(sq(site, '/bm/reports')).then(setReports)
+    api.get(`/equipments${sq(site)}`).then(setEqs)
     api.get('/parts').then(setParts)
   }
-  useEffect(load, [])
+  useEffect(load, [site])
 
   const create = async () => {
     await api.post('/bm/reports', { ...form, equipment_id: Number(form.equipment_id) })

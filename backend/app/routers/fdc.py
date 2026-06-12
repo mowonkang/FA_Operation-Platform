@@ -41,8 +41,11 @@ def _classify(sensor: models.FDCSensor, value: float, recent_vals: list[float]) 
 
 
 @router.get("/sensors", response_model=list[schemas.FDCSensorOut])
-def list_sensors(equipment_id: int | None = None, db: Session = Depends(get_db)):
+def list_sensors(equipment_id: int | None = None, site_id: int | None = None,
+                 db: Session = Depends(get_db)):
     q = db.query(models.FDCSensor)
+    if site_id:
+        q = q.join(models.Equipment).filter(models.Equipment.site_id == site_id)
     if equipment_id:
         q = q.filter(models.FDCSensor.equipment_id == equipment_id)
     return q.all()
@@ -112,8 +115,11 @@ def readings(sensor_id: int, limit: int = 200, db: Session = Depends(get_db)):
 
 
 @router.get("/alarms", response_model=list[schemas.FDCAlarmOut])
-def alarms(status: str | None = None, db: Session = Depends(get_db)):
+def alarms(status: str | None = None, site_id: int | None = None, db: Session = Depends(get_db)):
     q = db.query(models.FDCAlarm)
+    if site_id:
+        q = (q.join(models.FDCSensor, models.FDCAlarm.sensor_id == models.FDCSensor.id)
+             .join(models.Equipment).filter(models.Equipment.site_id == site_id))
     if status:
         q = q.filter(models.FDCAlarm.status == status)
     return q.order_by(models.FDCAlarm.ts.desc()).limit(200).all()

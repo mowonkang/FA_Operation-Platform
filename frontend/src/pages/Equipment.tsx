@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, STATUS_LABEL } from '../api'
+import { useSite, sq } from '../site'
 
 export default function Equipment() {
   const [list, setList] = useState<any[]>([])
@@ -9,12 +10,13 @@ export default function Equipment() {
   const [form, setForm] = useState({ asset_code: '', model_id: '', site_id: '', line: '' })
   const [err, setErr] = useState('')
 
+  const { site } = useSite()
   const load = () => {
-    api.get('/equipments').then(setList)
+    api.get(`/equipments${sq(site)}`).then(setList)
     api.get('/models').then(setModels)
     api.get('/sites').then(setSites)
   }
-  useEffect(load, [])
+  useEffect(load, [site])
 
   const create = async () => {
     setErr('')

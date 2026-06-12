@@ -16,21 +16,45 @@ def list_sites(db: Session = Depends(get_db)):
 
 
 @router.get("/dashboard")
-def dashboard(db: Session = Depends(get_db)):
+def dashboard(site_id: int | None = None, db: Session = Depends(get_db)):
+    """site_id 지정 시 사이트 범위 KPI. L&L·지식은 전사 공통이므로 항상 전체."""
     today = date.today()
-    eq_total = db.query(func.count(models.Equipment.id)).scalar() or 0
-    eq_run = db.query(func.count(models.Equipment.id)).filter(models.Equipment.status == "RUN").scalar() or 0
-    pm_planned = db.query(func.count(models.PMOrder.id)).filter(models.PMOrder.status == "PLANNED").scalar() or 0
-    pm_overdue = (
+
+    def eq_scope(q, col):
+        if site_id:
+            return q.filter(col.in_(
+                db.query(models.Equipment.id).filter(models.Equipment.site_id == site_id)))
+        return q
+
+    eq_q = db.query(func.count(models.Equipment.id))
+    if site_id:
+        eq_q = eq_q.filter(models.Equipment.site_id == site_id)
+    eq_total = eq_q.scalar() or 0
+    eq_run_q = db.query(func.count(models.Equipment.id)).filter(models.Equipment.status == "RUN")
+    if site_id:
+        eq_run_q = eq_run_q.filter(models.Equipment.site_id == site_id)
+    eq_run = eq_run_q.scalar() or 0
+
+    pm_planned = eq_scope(db.query(func.count(models.PMOrder.id)).filter(
+        models.PMOrder.status == "PLANNED"), models.PMOrder.equipment_id).scalar() or 0
+    pm_overdue = eq_scope(
         db.query(func.count(models.PMOrder.id))
-        .filter(models.PMOrder.status.in_(["PLANNED", "IN_PROGRESS"]), models.PMOrder.plan_date < today)
-        .scalar() or 0
-    )
-    pm_done = db.query(func.count(models.PMOrder.id)).filter(models.PMOrder.status == "DONE").scalar() or 0
-    bm_open = db.query(func.count(models.BMReport.id)).filter(models.BMReport.status.in_(["OPEN", "ANALYZING"])).scalar() or 0
-    bm_total = db.query(func.count(models.BMReport.id)).scalar() or 0
-    downtime = db.query(func.coalesce(func.sum(models.BMReport.downtime_min), 0)).scalar() or 0
-    alarms_open = db.query(func.count(models.FDCAlarm.id)).filter(models.FDCAlarm.status == "OPEN").scalar() or 0
+        .filter(models.PMOrder.status.in_(["PLANNED", "IN_PROGRESS"]), models.PMOrder.plan_date < today),
+        models.PMOrder.equipment_id).scalar() or 0
+    pm_done = eq_scope(db.query(func.count(models.PMOrder.id)).filter(
+        models.PMOrder.status == "DONE"), models.PMOrder.equipment_id).scalar() or 0
+    bm_open = eq_scope(db.query(func.count(models.BMReport.id)).filter(
+        models.BMReport.status.in_(["OPEN", "ANALYZING"])), models.BMReport.equipment_id).scalar() or 0
+    bm_total = eq_scope(db.query(func.count(models.BMReport.id)),
+                        models.BMReport.equipment_id).scalar() or 0
+    downtime = eq_scope(db.query(func.coalesce(func.sum(models.BMReport.downtime_min), 0)),
+                        models.BMReport.equipment_id).scalar() or 0
+    alarm_q = db.query(func.count(models.FDCAlarm.id)).filter(models.FDCAlarm.status == "OPEN")
+    if site_id:
+        alarm_q = alarm_q.filter(models.FDCAlarm.sensor_id.in_(
+            db.query(models.FDCSensor.id).join(models.Equipment)
+            .filter(models.Equipment.site_id == site_id)))
+    alarms_open = alarm_q.scalar() or 0
     parts_short = (
         db.query(func.count(models.Part.id))
         .filter(models.Part.current_stock < models.Part.min_stock)
@@ -52,22 +76,20 @@ def dashboard(db: Session = Depends(get_db)):
     for w in range(7, -1, -1):
         start = now - timedelta(days=7 * (w + 1))
         end = now - timedelta(days=7 * w)
-        rows = (
-            db.query(func.count(models.BMReport.id),
-                     func.coalesce(func.sum(models.BMReport.downtime_min), 0))
-            .filter(models.BMReport.occurred_at >= start, models.BMReport.occurred_at < end)
-            .one()
-        )
+        wq = (db.query(func.count(models.BMReport.id),
+                       func.coalesce(func.sum(models.BMReport.downtime_min), 0))
+              .filter(models.BMReport.occurred_at >= start, models.BMReport.occurred_at < end))
+        rows = eq_scope(wq, models.BMReport.equipment_id).one()
         weekly.append({"week": end.strftime("%m/%d"), "bm_count": rows[0],
                        "downtime_min": float(rows[1])})
 
     # PM 오더 상태 분포 (OVERDUE 는 파생)
     pm_dist = {"DONE": pm_done, "OVERDUE": pm_overdue,
                "PLANNED": max(pm_planned - pm_overdue, 0)}
-    pm_dist["IN_PROGRESS"] = (
+    pm_dist["IN_PROGRESS"] = eq_scope(
         db.query(func.count(models.PMOrder.id))
-        .filter(models.PMOrder.status == "IN_PROGRESS").scalar() or 0
-    )
+        .filter(models.PMOrder.status == "IN_PROGRESS"),
+        models.PMOrder.equipment_id).scalar() or 0
 
     # FDC 알람 분류 분포
     alarm_cls = dict(

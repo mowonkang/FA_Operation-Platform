@@ -49,8 +49,11 @@ def _derived_status(o: models.PMOrder) -> str:
 
 
 @router.get("/orders", response_model=list[schemas.PMOrderOut])
-def list_orders(status: str | None = None, equipment_id: int | None = None, db: Session = Depends(get_db)):
+def list_orders(status: str | None = None, equipment_id: int | None = None,
+                site_id: int | None = None, db: Session = Depends(get_db)):
     q = db.query(models.PMOrder)
+    if site_id:
+        q = q.join(models.Equipment).filter(models.Equipment.site_id == site_id)
     if equipment_id:
         q = q.filter(models.PMOrder.equipment_id == equipment_id)
     orders = q.order_by(models.PMOrder.plan_date).all()

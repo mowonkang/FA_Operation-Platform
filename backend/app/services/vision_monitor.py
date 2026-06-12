@@ -286,6 +286,97 @@ def make_overlay(img: Image.Image, blobs: list[dict], judgment: str) -> bytes:
     return buf.getvalue()
 
 
+# ───────────────────────── 순회(패트롤) 동영상 매칭 ─────────────────────────
+
+MATCH_SIZE = 96           # 매칭용 축소 크기
+MATCH_THRESHOLD = 0.55    # 정합 후 NCC 임계 (미만이면 '등록 포인트 아님' = 이동 중 장면)
+
+
+def _small_gray(data: bytes) -> np.ndarray:
+    """매칭용 정규화 축소 이미지 — 평균화 리사이즈(얇은 윤곽 보존, 노이즈 억제)."""
+    img = Image.open(io.BytesIO(data)).convert("L").resize(
+        (MATCH_SIZE, MATCH_SIZE), Image.BILINEAR)
+    s = np.asarray(img, dtype=np.float32)
+    s = (s - s.mean()) / (s.std() + 1e-6)
+    return s
+
+
+def match_confidence(base_small: np.ndarray, frame_small: np.ndarray) -> float:
+    """프레임-포인트 동일 장면 여부: 위상상관으로 평행이동 정합 후 NCC(−1~1).
+
+    같은 장면(촬영 구도 재현)이면 0.7↑, 다른 장면/이동 중 프레임은 0.4↓ 경향.
+    """
+    win = np.outer(np.hanning(MATCH_SIZE), np.hanning(MATCH_SIZE))
+    fb = np.fft.rfft2(base_small * win)
+    fc = np.fft.rfft2(frame_small * win)
+    cross = fb * np.conj(fc)
+    cross /= np.abs(cross) + 1e-9
+    corr = np.fft.irfft2(cross, s=(MATCH_SIZE, MATCH_SIZE))
+    peak = np.unravel_index(np.argmax(corr), corr.shape)
+    dy = peak[0] if peak[0] <= MATCH_SIZE // 2 else peak[0] - MATCH_SIZE
+    dx = peak[1] if peak[1] <= MATCH_SIZE // 2 else peak[1] - MATCH_SIZE
+    aligned = np.roll(np.roll(frame_small, int(dy), axis=0), int(dx), axis=1)
+    # 정합 유효 영역에서 NCC
+    m = 8  # 랩어라운드 가장자리 제외
+    a = base_small[m:-m, m:-m]
+    b = aligned[m:-m, m:-m]
+    a = (a - a.mean()) / (a.std() + 1e-6)
+    b = (b - b.mean()) / (b.std() + 1e-6)
+    return float(np.mean(a * b))
+
+
+def analyze_patrol(video: bytes, points: list[dict], max_frames: int = 40) -> dict:
+    """순회 동영상 → 프레임별 포인트 자동 매칭 → 포인트별 최적 프레임 분석.
+
+    points: [{"id", "name", "target_type", "params", "baseline": bytes}]
+    반환: 포인트별 결과(매칭 신뢰도·판정·findings·overlay), 미커버 포인트, 미매칭 프레임 수
+    """
+    frames = extract_video_frames(video, max_frames=max_frames)
+    if not frames:
+        raise ValueError("동영상에서 프레임을 추출하지 못했습니다")
+
+    base_smalls = {p["id"]: _small_gray(p["baseline"]) for p in points}
+    frame_smalls = [_small_gray(f) for f in frames]
+
+    # 프레임 → 최적 포인트 매칭 (임계 미만은 미매칭 = 이동 중 장면)
+    assignments: dict[int, list[tuple[int, float]]] = {}  # point_id -> [(frame_idx, conf)]
+    unmatched = 0
+    for fi, fs in enumerate(frame_smalls):
+        best_pid, best_conf = None, 0.0
+        for p in points:
+            conf = match_confidence(base_smalls[p["id"]], fs)
+            if conf > best_conf:
+                best_conf, best_pid = conf, p["id"]
+        if best_pid is not None and best_conf >= MATCH_THRESHOLD:
+            assignments.setdefault(best_pid, []).append((fi, best_conf))
+        else:
+            unmatched += 1
+
+    results = []
+    for p in points:
+        cand = assignments.get(p["id"])
+        if not cand:
+            continue
+        # 매칭 신뢰도 최고 프레임으로 분석
+        fi, conf = max(cand, key=lambda x: x[1])
+        r = analyze_shot(p["baseline"], frames[fi], p["target_type"], p.get("params"))
+        results.append({
+            "point_id": p["id"], "name": p["name"], "target_type": p["target_type"],
+            "frame_index": fi, "match_confidence": round(conf, 1),
+            "frames_matched": len(cand),
+            "shot_bytes": frames[fi], "analysis": r,
+        })
+    covered_ids = {r["point_id"] for r in results}
+    missed = [{"point_id": p["id"], "name": p["name"]} for p in points
+              if p["id"] not in covered_ids]
+    return {
+        "frames_total": len(frames),
+        "frames_unmatched": unmatched,
+        "results": results,
+        "missed_points": missed,
+    }
+
+
 def extract_video_frames(data: bytes, max_frames: int = 6) -> list[bytes]:
     """동영상에서 균등 간격 프레임 추출 (opencv 필요 — 미설치 시 예외)."""
     try:
