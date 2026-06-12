@@ -17,9 +17,13 @@ Install Parameter·PM·BM까지의 이력 관리, PM 점검항목 표준화, 비
 | **엔지니어링 검토** | 와이어로프 안전율/수명, 베어링 L10, 배터리 SOH/수명, 휠 마모 안전연수 계산기 |
 | **FDC** | 센서 데이터 수집 API, 룰 기반 이상감지/분류(레벨·스파이크·드리프트), 알람→BM 전환 |
 | **Lesson & Learn** | 등록 시 전 법인 자동 전파, 법인별 적용 상태 매트릭스, PM 표준 반영 추적 |
+| **워크플로우** | DR·셋업 안정화·알람 조치·BM·PM·제어 변경·시스템 이슈 7종 표준 절차, DR 데이터팩(운영 이력 → 차기 설계 환류) |
+| **지식 DB** | 물류설비 엔지니어링 지식 17건(ISO/FEM/DIN/법규/논문 출처 포함), 카테고리·검색 |
+| **와이어로프 PRO** | 가반하중·체결방식 기반 안전율(법규)·Feyrer 수명 예측, D/d·직경·줄수 민감도 인터랙티브 차트 |
 
 문서: [기획/파이프라인](docs/01_PLATFORM_PLAN.md) · [데이터 모델](docs/02_DATA_MODEL.md) ·
-[비전 측정 방법](docs/03_VISION_INSPECTION.md)
+[비전 측정 방법](docs/03_VISION_INSPECTION.md) · [지식 DB](docs/04_KNOWLEDGE_BASE.md) ·
+[워크플로우](docs/05_WORKFLOWS.md)
 
 ## 실행 방법
 
