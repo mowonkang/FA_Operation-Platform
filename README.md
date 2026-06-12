@@ -36,6 +36,11 @@ python -m app.seed                 # 데모 시드 데이터 (최초 1회)
 uvicorn app.main:app --reload --port 8000
 ```
 
+> **데모 데이터 초기화/갱신**: 코드 업데이트 후 샘플 데이터를 새로 받으려면 서버 중지 후
+> 프로젝트 루트에서 `.\reset_demo.ps1` (Windows) 또는 `./reset_demo.sh` (macOS/Linux) 실행.
+> 전 모듈(설비 11대, PM 17건, BM 8건, FDC 알람 7건, 이슈 8건, L&L 3건, 워크플로우 3건,
+> 견적 2건, 지식 17건)이 채워진 상태로 시작합니다.
+
 API 문서: http://localhost:8000/docs
 
 ### Frontend (React + Vite)

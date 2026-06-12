@@ -12,27 +12,47 @@ const PM_COLORS: Record<string, string> = {
 
 export default function Dashboard() {
   const [d, setD] = useState<any>(null)
+  const [err, setErr] = useState('')
   const [overdue, setOverdue] = useState<any[]>([])
   const [alarms, setAlarms] = useState<any[]>([])
   const [issues, setIssues] = useState<any[]>([])
   const [shortage, setShortage] = useState<any[]>([])
 
   useEffect(() => {
-    api.get('/dashboard').then(setD)
-    api.get('/pm/orders?status=OVERDUE').then(setOverdue)
-    api.get('/fdc/alarms?status=OPEN').then(setAlarms)
-    api.get('/issues?status=OPEN').then((l) => setIssues(l.filter((i: any) => i.severity === 'HIGH')))
-    api.get('/parts/recommendation').then((r) => setShortage(r.filter((p: any) => p.shortage > 0)))
+    api.get('/dashboard').then(setD).catch((e) => setErr(String(e.message ?? e)))
+    api.get('/pm/orders?status=OVERDUE').then(setOverdue).catch(() => {})
+    api.get('/fdc/alarms?status=OPEN').then(setAlarms).catch(() => {})
+    api.get('/issues?status=OPEN')
+      .then((l) => setIssues(l.filter((i: any) => i.severity === 'HIGH'))).catch(() => {})
+    api.get('/parts/recommendation')
+      .then((r) => setShortage(r.filter((p: any) => p.shortage > 0))).catch(() => {})
   }, [])
 
+  if (err) return (
+    <div className="panel">
+      <div className="panel-title">백엔드 연결 실패</div>
+      <p className="error">{err}</p>
+      <p className="muted">
+        백엔드(8000)가 실행 중인지, 최신 코드로 재시작했는지 확인하세요:
+        <code> cd backend → uvicorn app.main:app --reload --port 8000</code>.
+        데모 데이터가 없으면 프로젝트 루트의 <code>reset_demo.ps1</code> 을 실행하세요.
+      </p>
+    </div>
+  )
   if (!d) return <p className="muted">로딩중…</p>
 
+  const weekly = d.weekly_bm ?? []
+  const pmDist = d.pm_status_dist ?? {}
+  const alarmDist = d.alarm_classification_dist ?? []
+  const availability = d.availability_pct ??
+    (d.equipment_total ? Math.round((d.equipment_running / d.equipment_total) * 1000) / 10 : 0)
+
   const primary = [
-    { label: '설비 가동률', value: d.availability_pct, unit: '%', sub: `${d.equipment_running}/${d.equipment_total} 대 가동중`,
-      cls: d.availability_pct >= 90 ? 'ok' : d.availability_pct >= 70 ? 'warn' : 'ng' },
+    { label: '설비 가동률', value: availability, unit: '%', sub: `${d.equipment_running}/${d.equipment_total} 대 가동중`,
+      cls: availability >= 90 ? 'ok' : availability >= 70 ? 'warn' : 'ng' },
     { label: 'PM 준수율', value: d.pm_compliance_pct, unit: '%', sub: `완료 ${d.pm_done} · 지연 ${d.pm_overdue}`,
       cls: d.pm_compliance_pct >= 90 ? 'ok' : d.pm_compliance_pct >= 70 ? 'warn' : 'ng' },
-    { label: '미결 BM', value: d.bm_open, unit: '건', sub: `누적 다운타임 ${d.total_downtime_min.toLocaleString()}분`,
+    { label: '미결 BM', value: d.bm_open, unit: '건', sub: `누적 다운타임 ${(d.total_downtime_min ?? 0).toLocaleString()}분`,
       cls: d.bm_open === 0 ? 'ok' : d.bm_open <= 2 ? 'warn' : 'ng' },
     { label: 'OPEN 알람 (FDC)', value: d.fdc_alarms_open, unit: '건', sub: '미조치 이상감지',
       cls: d.fdc_alarms_open === 0 ? 'ok' : 'ng' },
@@ -47,7 +67,7 @@ export default function Dashboard() {
   ]
 
   const actionCount = overdue.length + alarms.length + issues.length + shortage.length
-  const pmPie = Object.entries(d.pm_status_dist).map(([name, value]) => ({ name, value }))
+  const pmPie = Object.entries(pmDist).map(([name, value]) => ({ name, value }))
 
   return (
     <div>
@@ -133,7 +153,7 @@ export default function Dashboard() {
         <div className="panel">
           <div className="panel-title">주간 BM 발생 · 다운타임 추이 <span className="hint">최근 8주</span></div>
           <ResponsiveContainer width="100%" height={200}>
-            <ComposedChart data={d.weekly_bm}>
+            <ComposedChart data={weekly}>
               <XAxis dataKey="week" fontSize={11} />
               <YAxis yAxisId="l" fontSize={11} allowDecimals={false} />
               <YAxis yAxisId="r" orientation="right" fontSize={11} />
@@ -147,7 +167,7 @@ export default function Dashboard() {
         <div className="panel">
           <div className="panel-title">FDC 알람 분류 분포 <span className="hint">LEVEL=한계 / SPIKE=충격성 / DRIFT=열화 진행</span></div>
           <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={d.alarm_classification_dist} layout="vertical">
+            <BarChart data={alarmDist} layout="vertical">
               <XAxis type="number" fontSize={11} allowDecimals={false} />
               <YAxis type="category" dataKey="name" fontSize={11} width={90} />
               <Tooltip />

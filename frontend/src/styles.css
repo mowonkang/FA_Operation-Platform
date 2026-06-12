@@ -201,18 +201,21 @@ a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
 /* ── 라이프사이클 플로우 ── */
-.flow-phases { display: flex; gap: 0; overflow-x: auto; margin-bottom: 18px; }
+.flow-phases { display: flex; gap: 8px; overflow-x: auto; margin-bottom: 18px; align-items: center; }
 .flow-phase {
-  flex: 1; min-width: 150px; position: relative; padding: 10px 24px 10px 28px;
-  background: var(--surface); border: 1px solid var(--border); border-right: none;
-  clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 50%, calc(100% - 16px) 100%, 0 100%, 14px 50%);
-  text-align: center;
+  flex: 1; min-width: 140px; padding: 10px 14px; position: relative;
+  background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius);
+  text-align: center; cursor: pointer;
 }
-.flow-phase:first-child { clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 50%, calc(100% - 16px) 100%, 0 100%); }
+.flow-phase:not(:last-child)::after {
+  content: '➔'; position: absolute; right: -12px; top: 50%; transform: translateY(-50%);
+  color: var(--text-3); font-size: 13px; z-index: 1;
+}
+.flow-phase:hover { border-color: var(--accent); }
 .flow-phase.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.flow-phase.active::after { color: var(--text-3); }
 .flow-phase .ph-name { font-weight: 700; font-size: 13px; }
 .flow-phase .ph-count { font-size: 10.5px; opacity: .75; }
-.flow-phase { cursor: pointer; }
 
 .proc-flow { display: flex; flex-wrap: wrap; gap: 0; align-items: stretch; }
 .proc-node {
