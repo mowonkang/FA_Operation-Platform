@@ -41,19 +41,27 @@ def update_standard(item_id: int, body: schemas.PMStandardItemIn, db: Session = 
 
 
 # ── PM 오더 ──
+def _derived_status(o: models.PMOrder) -> str:
+    """OVERDUE 는 plan_date 에서 파생 (GET 이 DB 를 변경하지 않도록)."""
+    if o.status == "PLANNED" and o.plan_date < date.today():
+        return "OVERDUE"
+    return o.status
+
+
 @router.get("/orders", response_model=list[schemas.PMOrderOut])
 def list_orders(status: str | None = None, equipment_id: int | None = None, db: Session = Depends(get_db)):
-    # 기한 경과 오더 자동 OVERDUE 처리
-    db.query(models.PMOrder).filter(
-        models.PMOrder.status == "PLANNED", models.PMOrder.plan_date < date.today()
-    ).update({"status": "OVERDUE"})
-    db.commit()
     q = db.query(models.PMOrder)
-    if status:
-        q = q.filter(models.PMOrder.status == status)
     if equipment_id:
         q = q.filter(models.PMOrder.equipment_id == equipment_id)
-    return q.order_by(models.PMOrder.plan_date).all()
+    orders = q.order_by(models.PMOrder.plan_date).all()
+    out = []
+    for o in orders:
+        s = schemas.PMOrderOut.model_validate(o)
+        s.status = _derived_status(o)
+        if status and s.status != status:
+            continue
+        out.append(s)
+    return out
 
 
 @router.post("/orders", response_model=schemas.PMOrderOut)
@@ -70,7 +78,9 @@ def get_order(order_id: int, db: Session = Depends(get_db)):
     o = db.get(models.PMOrder, order_id)
     if not o:
         raise HTTPException(404, "order not found")
-    return o
+    s = schemas.PMOrderDetailOut.model_validate(o)
+    s.status = _derived_status(o)
+    return s
 
 
 @router.post("/orders/{order_id}/complete", response_model=schemas.PMOrderDetailOut)

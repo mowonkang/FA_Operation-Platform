@@ -57,7 +57,7 @@ class Equipment(Base):
 class LifecycleEvent(Base):
     __tablename__ = "lifecycle_events"
     id: Mapped[int] = mapped_column(primary_key=True)
-    equipment_id: Mapped[int] = mapped_column(ForeignKey("equipments.id"))
+    equipment_id: Mapped[int] = mapped_column(ForeignKey("equipments.id"), index=True)
     stage: Mapped[str] = mapped_column(String(20))  # DR/FABRICATION/SETUP/INSTALL_PARAM/PM/BM/MODIFY/SCRAP
     title: Mapped[str] = mapped_column(String(200))
     detail: Mapped[str] = mapped_column(Text, default="")
@@ -70,7 +70,7 @@ class LifecycleEvent(Base):
 class InstallParameter(Base):
     __tablename__ = "install_parameters"
     id: Mapped[int] = mapped_column(primary_key=True)
-    equipment_id: Mapped[int] = mapped_column(ForeignKey("equipments.id"))
+    equipment_id: Mapped[int] = mapped_column(ForeignKey("equipments.id"), index=True)
     name: Mapped[str] = mapped_column(String(100))
     value: Mapped[str] = mapped_column(String(100))
     unit: Mapped[str] = mapped_column(String(20), default="")
@@ -104,7 +104,7 @@ class PMStandardItem(Base):
 class PMOrder(Base):
     __tablename__ = "pm_orders"
     id: Mapped[int] = mapped_column(primary_key=True)
-    equipment_id: Mapped[int] = mapped_column(ForeignKey("equipments.id"))
+    equipment_id: Mapped[int] = mapped_column(ForeignKey("equipments.id"), index=True)
     plan_date: Mapped[date] = mapped_column(Date)
     status: Mapped[str] = mapped_column(String(20), default="PLANNED")  # PLANNED/IN_PROGRESS/DONE/OVERDUE
     performed_date: Mapped[date | None] = mapped_column(Date)
@@ -118,7 +118,7 @@ class PMOrder(Base):
 class PMResult(Base):
     __tablename__ = "pm_results"
     id: Mapped[int] = mapped_column(primary_key=True)
-    order_id: Mapped[int] = mapped_column(ForeignKey("pm_orders.id"))
+    order_id: Mapped[int] = mapped_column(ForeignKey("pm_orders.id"), index=True)
     standard_item_id: Mapped[int] = mapped_column(ForeignKey("pm_standard_items.id"))
     measured_value: Mapped[float | None] = mapped_column(Float)
     judgment: Mapped[str] = mapped_column(String(10), default="OK")  # OK/NG/CHECK
@@ -135,7 +135,7 @@ class PMResult(Base):
 class BMReport(Base):
     __tablename__ = "bm_reports"
     id: Mapped[int] = mapped_column(primary_key=True)
-    equipment_id: Mapped[int] = mapped_column(ForeignKey("equipments.id"))
+    equipment_id: Mapped[int] = mapped_column(ForeignKey("equipments.id"), index=True)
     occurred_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     symptom: Mapped[str] = mapped_column(Text)
     cause: Mapped[str] = mapped_column(Text, default="")
@@ -196,7 +196,7 @@ class PartTransaction(Base):
 class FDCSensor(Base):
     __tablename__ = "fdc_sensors"
     id: Mapped[int] = mapped_column(primary_key=True)
-    equipment_id: Mapped[int] = mapped_column(ForeignKey("equipments.id"))
+    equipment_id: Mapped[int] = mapped_column(ForeignKey("equipments.id"), index=True)
     name: Mapped[str] = mapped_column(String(100))
     unit: Mapped[str] = mapped_column(String(20), default="")
     warn_low: Mapped[float | None] = mapped_column(Float)
@@ -218,7 +218,7 @@ class FDCReading(Base):
 class FDCAlarm(Base):
     __tablename__ = "fdc_alarms"
     id: Mapped[int] = mapped_column(primary_key=True)
-    sensor_id: Mapped[int] = mapped_column(ForeignKey("fdc_sensors.id"))
+    sensor_id: Mapped[int] = mapped_column(ForeignKey("fdc_sensors.id"), index=True)
     level: Mapped[str] = mapped_column(String(10))  # WARN/ALARM
     classification: Mapped[str] = mapped_column(String(20))  # LEVEL_HIGH/LEVEL_LOW/SPIKE/DRIFT
     value: Mapped[float] = mapped_column(Float)
@@ -325,7 +325,7 @@ class Workflow(Base):
 class WorkflowStep(Base):
     __tablename__ = "workflow_steps"
     id: Mapped[int] = mapped_column(primary_key=True)
-    workflow_id: Mapped[int] = mapped_column(ForeignKey("workflows.id"))
+    workflow_id: Mapped[int] = mapped_column(ForeignKey("workflows.id"), index=True)
     seq: Mapped[int] = mapped_column(Integer)
     name: Mapped[str] = mapped_column(String(200))
     guide: Mapped[str] = mapped_column(Text, default="")          # 수행 지침(판정기준·참조 표준)
@@ -394,7 +394,7 @@ class Quotation(Base):
 class QuotationItem(Base):
     __tablename__ = "quotation_items"
     id: Mapped[int] = mapped_column(primary_key=True)
-    quotation_id: Mapped[int] = mapped_column(ForeignKey("quotations.id"))
+    quotation_id: Mapped[int] = mapped_column(ForeignKey("quotations.id"), index=True)
     line_no: Mapped[int] = mapped_column(Integer, default=0)
     name: Mapped[str] = mapped_column(String(300))
     spec: Mapped[str] = mapped_column(String(300), default="")

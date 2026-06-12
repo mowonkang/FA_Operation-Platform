@@ -190,16 +190,14 @@ def close_workflow(wf_id: int, body: schemas.WorkflowCloseIn, db: Session = Depe
     if body.create_lesson:
         if not body.origin_site_id:
             raise HTTPException(400, "L&L 생성에는 origin_site_id 가 필요합니다")
-        lesson = models.Lesson(
+        from .lessons import create_lesson_with_deployments
+        lesson = create_lesson_with_deployments(
+            db,
             title=body.lesson_title or f"[{wf.wf_type}] {wf.title}",
             category=body.lesson_category, model_id=wf.model_id,
             problem=wf.title, countermeasure=body.result_note,
             origin_site_id=body.origin_site_id, created_by=wf.created_by,
         )
-        db.add(lesson)
-        db.flush()
-        for site in db.query(models.Site).filter(models.Site.id != body.origin_site_id).all():
-            db.add(models.LessonDeployment(lesson_id=lesson.id, site_id=site.id))
         wf.lesson_id = lesson.id
     if wf.equipment_id:
         db.add(models.LifecycleEvent(

@@ -9,6 +9,16 @@ from ..database import get_db
 router = APIRouter(prefix="/lessons", tags=["lessons"])
 
 
+def create_lesson_with_deployments(db: Session, **fields) -> models.Lesson:
+    """L&L 생성 + 발생 법인 외 전 법인 자동 전파(NOTIFIED). 모든 생성 경로의 공용 헬퍼."""
+    lesson = models.Lesson(**fields)
+    db.add(lesson)
+    db.flush()
+    for site in db.query(models.Site).filter(models.Site.id != lesson.origin_site_id).all():
+        db.add(models.LessonDeployment(lesson_id=lesson.id, site_id=site.id))
+    return lesson
+
+
 @router.get("", response_model=list[schemas.LessonOut])
 def list_lessons(db: Session = Depends(get_db)):
     return db.query(models.Lesson).order_by(models.Lesson.created_at.desc()).all()
@@ -16,12 +26,7 @@ def list_lessons(db: Session = Depends(get_db)):
 
 @router.post("", response_model=schemas.LessonOut)
 def create_lesson(body: schemas.LessonIn, db: Session = Depends(get_db)):
-    lesson = models.Lesson(**body.model_dump())
-    db.add(lesson)
-    db.flush()
-    # 발생 법인 외 전 법인에 자동 전파(NOTIFIED)
-    for site in db.query(models.Site).filter(models.Site.id != body.origin_site_id).all():
-        db.add(models.LessonDeployment(lesson_id=lesson.id, site_id=site.id))
+    lesson = create_lesson_with_deployments(db, **body.model_dump())
     db.commit()
     db.refresh(lesson)
     return lesson

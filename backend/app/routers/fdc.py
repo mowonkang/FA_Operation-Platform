@@ -15,8 +15,12 @@ DRIFT_WINDOW = 20       # 드리프트 판정 최근 표본 수
 DRIFT_RATIO = 0.7       # 워닝 한계 대비 평균 접근 비율
 
 
-def _classify(db: Session, sensor: models.FDCSensor, value: float) -> tuple[str, str] | None:
-    """레벨/스파이크/드리프트 룰 기반 Fault Detection & Classification."""
+def _classify(sensor: models.FDCSensor, value: float, recent_vals: list[float]) -> tuple[str, str] | None:
+    """레벨/스파이크/드리프트 룰 기반 Fault Detection & Classification.
+
+    recent_vals 는 호출 측이 유지하는 롤링 윈도우(과거→최신 순) — 배치 인제스트 시
+    레코드마다 DB 를 조회하지 않도록 분리했다.
+    """
     if sensor.alarm_high is not None and value >= sensor.alarm_high:
         return "ALARM", "LEVEL_HIGH"
     if sensor.alarm_low is not None and value <= sensor.alarm_low:
@@ -26,17 +30,9 @@ def _classify(db: Session, sensor: models.FDCSensor, value: float) -> tuple[str,
     if sensor.warn_low is not None and value <= sensor.warn_low:
         return "WARN", "LEVEL_LOW"
 
-    recent = (
-        db.query(models.FDCReading)
-        .filter(models.FDCReading.sensor_id == sensor.id)
-        .order_by(models.FDCReading.ts.desc())
-        .limit(DRIFT_WINDOW)
-        .all()
-    )
-    if len(recent) >= 10:
-        vals = [r.value for r in recent]
-        mean = sum(vals) / len(vals)
-        std = math.sqrt(sum((v - mean) ** 2 for v in vals) / len(vals)) or 1e-9
+    if len(recent_vals) >= 10:
+        mean = sum(recent_vals) / len(recent_vals)
+        std = math.sqrt(sum((v - mean) ** 2 for v in recent_vals) / len(recent_vals)) or 1e-9
         if abs(value - mean) > SPIKE_SIGMA * std:
             return "WARN", "SPIKE"
         if sensor.warn_high is not None and mean > sensor.warn_high * DRIFT_RATIO:
@@ -63,22 +59,42 @@ def create_sensor(body: schemas.FDCSensorIn, db: Session = Depends(get_db)):
 
 @router.post("/ingest")
 def ingest(body: schemas.FDCIngestIn, db: Session = Depends(get_db)):
-    """설비 게이트웨이로부터 측정값 배치 수집 + 실시간 룰 평가."""
-    alarms = 0
+    """설비 게이트웨이로부터 측정값 배치 수집 + 실시간 룰 평가.
+
+    센서별로 최근 윈도우를 1회만 조회하고 배치 내에서는 메모리 롤링으로 유지한다.
+    """
+    by_sensor: dict[int, list] = {}
     for r in body.readings:
-        sensor = db.get(models.FDCSensor, r.sensor_id)
+        by_sensor.setdefault(r.sensor_id, []).append(r)
+
+    alarms = 0
+    for sensor_id, readings in by_sensor.items():
+        sensor = db.get(models.FDCSensor, sensor_id)
         if not sensor:
-            raise HTTPException(400, f"sensor {r.sensor_id} not found")
-        verdict = _classify(db, sensor, r.value)
-        db.add(models.FDCReading(sensor_id=r.sensor_id, value=r.value, ts=r.ts or datetime.utcnow()))
-        if verdict:
-            level, cls = verdict
-            db.add(models.FDCAlarm(
-                sensor_id=sensor.id, level=level, classification=cls, value=r.value,
-                message=f"{sensor.name} {cls} ({r.value}{sensor.unit})",
-                ts=r.ts or datetime.utcnow(),
-            ))
-            alarms += 1
+            raise HTTPException(400, f"sensor {sensor_id} not found")
+        recent = (
+            db.query(models.FDCReading.value)
+            .filter(models.FDCReading.sensor_id == sensor_id)
+            .order_by(models.FDCReading.ts.desc())
+            .limit(DRIFT_WINDOW)
+            .all()
+        )
+        window = [row[0] for row in reversed(recent)]
+        for r in sorted(readings, key=lambda x: x.ts or datetime.utcnow()):
+            verdict = _classify(sensor, r.value, window)
+            db.add(models.FDCReading(sensor_id=sensor_id, value=r.value,
+                                     ts=r.ts or datetime.utcnow()))
+            window.append(r.value)
+            if len(window) > DRIFT_WINDOW:
+                window.pop(0)
+            if verdict:
+                level, cls = verdict
+                db.add(models.FDCAlarm(
+                    sensor_id=sensor.id, level=level, classification=cls, value=r.value,
+                    message=f"{sensor.name} {cls} ({r.value}{sensor.unit})",
+                    ts=r.ts or datetime.utcnow(),
+                ))
+                alarms += 1
     db.commit()
     return {"ingested": len(body.readings), "alarms_raised": alarms}
 

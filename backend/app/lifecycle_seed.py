@@ -98,22 +98,27 @@ DEFAULTS: list[dict] = [
 ]
 
 
+def seed_defaults(db) -> int:
+    """기본 라이프사이클 적재 (비어있을 때만). 라우터/CLI 공용. 적재한 단계 수 반환."""
+    if db.query(LifecyclePhase).first():
+        return 0
+    for ph in DEFAULTS:
+        phase = LifecyclePhase(code=ph["code"], name=ph["name"], seq=ph["seq"],
+                               description=ph["description"])
+        db.add(phase)
+        db.flush()
+        for i, pr in enumerate(ph["processes"], start=1):
+            db.add(LifecycleProcess(phase_id=phase.id, seq=i, **pr))
+    db.commit()
+    return len(DEFAULTS)
+
+
 def run():
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     try:
-        if db.query(LifecyclePhase).first():
-            print("라이프사이클 이미 시드됨 — 건너뜀")
-            return
-        for ph in DEFAULTS:
-            phase = LifecyclePhase(code=ph["code"], name=ph["name"], seq=ph["seq"],
-                                   description=ph["description"])
-            db.add(phase)
-            db.flush()
-            for i, pr in enumerate(ph["processes"], start=1):
-                db.add(LifecycleProcess(phase_id=phase.id, seq=i, **pr))
-        db.commit()
-        print(f"라이프사이클 시드 완료: {len(DEFAULTS)}단계")
+        n = seed_defaults(db)
+        print(f"라이프사이클 시드 완료: {n}단계" if n else "라이프사이클 이미 시드됨 — 건너뜀")
     finally:
         db.close()
 

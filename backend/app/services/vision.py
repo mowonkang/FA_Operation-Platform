@@ -128,18 +128,25 @@ def _alignment(rgb: np.ndarray, recipe: dict) -> dict:
 
 
 def judge(value: float | None, lower: float | None, upper: float | None) -> str:
-    """한계값 대비 자동 판정. 한계 ±10% 밴드 접근 시 CHECK."""
+    """한계값 대비 자동 판정. 한계 접근(10% 밴드) 시 CHECK.
+
+    양측 한계: 범위 폭의 10% 밴드. 단측 한계: 한계값 자체의 10% 밴드
+    (예: 상한 100 → 90 초과 시 CHECK, 하한 3.0 → 3.3 미만 시 CHECK).
+    """
     if value is None:
         return "CHECK"
     if lower is not None and value < lower:
         return "NG"
     if upper is not None and value > upper:
         return "NG"
-    span = None
     if lower is not None and upper is not None:
         span = upper - lower
-    if upper is not None and span and value > upper - 0.1 * span:
-        return "CHECK"
-    if lower is not None and span and value < lower + 0.1 * span:
-        return "CHECK"
+        if span > 0 and (value > upper - 0.1 * span or value < lower + 0.1 * span):
+            return "CHECK"
+    elif upper is not None:
+        if value > upper - 0.1 * abs(upper):
+            return "CHECK"
+    elif lower is not None:
+        if value < lower + 0.1 * abs(lower):
+            return "CHECK"
     return "OK"

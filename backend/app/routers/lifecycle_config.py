@@ -9,17 +9,9 @@ router = APIRouter(prefix="/lifecycle-config", tags=["lifecycle-config"])
 
 @router.get("/map")
 def lifecycle_map(db: Session = Depends(get_db)):
-    """전체 라이프사이클 맵 (비어있으면 기본값 자동 시드)."""
-    if not db.query(models.LifecyclePhase).first():
-        from ..lifecycle_seed import DEFAULTS
-        for ph in DEFAULTS:
-            phase = models.LifecyclePhase(code=ph["code"], name=ph["name"], seq=ph["seq"],
-                                          description=ph["description"])
-            db.add(phase)
-            db.flush()
-            for i, pr in enumerate(ph["processes"], start=1):
-                db.add(models.LifecycleProcess(phase_id=phase.id, seq=i, **pr))
-        db.commit()
+    """전체 라이프사이클 맵 (비어있으면 기본값 자동 시드 — seed 모듈 공용 함수 사용)."""
+    from ..lifecycle_seed import seed_defaults
+    seed_defaults(db)
     phases = db.query(models.LifecyclePhase).order_by(models.LifecyclePhase.seq).all()
     return [
         {

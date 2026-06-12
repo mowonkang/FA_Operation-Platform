@@ -6,8 +6,6 @@ from ..database import get_db
 
 router = APIRouter(tags=["equipment"])
 
-LIFECYCLE_STAGES = ["DR", "FABRICATION", "SETUP", "INSTALL_PARAM", "PM", "BM", "MODIFY", "SCRAP"]
-
 
 # ── 설비 모델 ──
 @router.get("/models", response_model=list[schemas.EquipmentModelOut])

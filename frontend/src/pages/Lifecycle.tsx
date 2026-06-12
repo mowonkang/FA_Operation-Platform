@@ -45,8 +45,15 @@ export default function Lifecycle() {
       load()
     }
   }
-  const moveProc = async (pr: any, dir: number) => {
-    await api.patch(`/lifecycle-config/processes/${pr.id}`, { seq: pr.seq + dir * 1.5 })
+  const moveProc = async (p: any, pr: any, dir: number) => {
+    // 전체 재번호 방식: 이웃과 자리 교환 후 1..n 정수로 정규화 (seq 중복에도 안전)
+    const sorted = [...p.processes].sort((a: any, b: any) => a.seq - b.seq || a.id - b.id)
+    const idx = sorted.findIndex((x: any) => x.id === pr.id)
+    const j = idx + dir
+    if (j < 0 || j >= sorted.length) return
+    ;[sorted[idx], sorted[j]] = [sorted[j], sorted[idx]]
+    await Promise.all(sorted.map((x: any, i: number) =>
+      api.patch(`/lifecycle-config/processes/${x.id}`, { seq: i + 1 })))
     load()
   }
   const renamePhase = async (p: any) => {
@@ -118,8 +125,8 @@ export default function Lifecycle() {
                     {link && <Link to={link.to} style={{ fontSize: 12 }}>→ {link.label}</Link>}
                     {edit && (
                       <div style={{ marginTop: 6, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                        <button className="secondary" style={{ padding: '2px 6px', fontSize: 11 }} onClick={() => moveProc(pr, -1)}>◀</button>
-                        <button className="secondary" style={{ padding: '2px 6px', fontSize: 11 }} onClick={() => moveProc(pr, 1)}>▶</button>
+                        <button className="secondary" style={{ padding: '2px 6px', fontSize: 11 }} onClick={() => moveProc(p, pr, -1)}>◀</button>
+                        <button className="secondary" style={{ padding: '2px 6px', fontSize: 11 }} onClick={() => moveProc(p, pr, 1)}>▶</button>
                         <button className="secondary" style={{ padding: '2px 6px', fontSize: 11 }} onClick={() => renameProc(pr)}>이름</button>
                         <button className="secondary" style={{ padding: '2px 6px', fontSize: 11 }} onClick={() => editDesc(pr)}>설명</button>
                         <button className="secondary" style={{ padding: '2px 6px', fontSize: 11, color: '#dc2626' }} onClick={() => delProc(pr)}>삭제</button>
