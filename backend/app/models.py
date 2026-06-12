@@ -429,3 +429,47 @@ class Issue(Base):
     closed_at: Mapped[datetime | None] = mapped_column(DateTime)
 
     equipment: Mapped["Equipment | None"] = relationship(lazy="joined")
+
+
+# ───────────────────────── 비전 상태감시 (정기 촬영) ─────────────────────────
+
+class InspectionPoint(Base):
+    """정기 촬영 포인트 — 동일 지점·동일 구도로 주기 촬영하여 기준 대비 변화를 감시.
+
+    target_type: BOLT(볼트 풀림) / WIRE(소선 불량) / SURFACE(파손·크랙) / RAIL(단차) / GENERIC
+    params(JSON): sensitivity, rotation_limit_deg, step_limit_mm, mm_per_px,
+                  warn_score, ng_score 등 타입별 판정 파라미터
+    """
+    __tablename__ = "inspection_points"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    equipment_id: Mapped[int] = mapped_column(ForeignKey("equipments.id"), index=True)
+    name: Mapped[str] = mapped_column(String(200))
+    target_type: Mapped[str] = mapped_column(String(20), default="GENERIC")
+    location_note: Mapped[str] = mapped_column(String(300), default="")  # 촬영 위치·지그·구도 표준
+    period_days: Mapped[int] = mapped_column(Integer, default=7)
+    baseline_path: Mapped[str] = mapped_column(String(300), default="")
+    params: Mapped[dict | None] = mapped_column(JSON)
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    equipment: Mapped["Equipment"] = relationship(lazy="joined")
+    shots: Mapped[list["InspectionShot"]] = relationship(
+        back_populates="point", order_by="InspectionShot.captured_at")
+
+
+class InspectionShot(Base):
+    """촬영 회차 — 분석 결과·오버레이·연계 이슈."""
+    __tablename__ = "inspection_shots"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    point_id: Mapped[int] = mapped_column(ForeignKey("inspection_points.id"), index=True)
+    captured_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    image_path: Mapped[str] = mapped_column(String(300), default="")
+    overlay_path: Mapped[str] = mapped_column(String(300), default="")
+    source: Mapped[str] = mapped_column(String(10), default="IMAGE")  # IMAGE/VIDEO
+    score: Mapped[float] = mapped_column(Float, default=0)
+    judgment: Mapped[str] = mapped_column(String(10), default="OK")  # OK/CHECK/NG
+    findings: Mapped[list | None] = mapped_column(JSON)
+    detail: Mapped[dict | None] = mapped_column(JSON)
+    issue_id: Mapped[int | None] = mapped_column(ForeignKey("issues.id"))
+
+    point: Mapped["InspectionPoint"] = relationship(back_populates="shots")

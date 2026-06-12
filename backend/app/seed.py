@@ -386,6 +386,15 @@ def run():
     finally:
         db2.close()
 
+    # 비전 상태감시 데모 (합성 이미지 4종 포인트 + 이상 회차)
+    from .routers.vision_monitor import seed_demo as vm_seed
+    db3 = SessionLocal()
+    try:
+        r = vm_seed(db3)
+        print(f"비전 상태감시 데모: {r}")
+    finally:
+        db3.close()
+
 
 if __name__ == "__main__":
     run()

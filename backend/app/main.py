@@ -1,12 +1,18 @@
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from .database import Base, engine
 from .routers import (bm, engineering, equipment, fdc, issues, knowledge,
                       lessons, lifecycle_config, meta, parts, pm, quotations,
-                      vision, workflows)
+                      vision, vision_monitor, workflows)
 
 Base.metadata.create_all(bind=engine)
+
+UPLOAD_DIR = os.environ.get("FA_UPLOAD_DIR", "./uploads")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 app = FastAPI(
     title="FA Operation Platform",
@@ -37,6 +43,9 @@ app.include_router(workflows.router, prefix=API)
 app.include_router(lifecycle_config.router, prefix=API)
 app.include_router(quotations.router, prefix=API)
 app.include_router(issues.router, prefix=API)
+app.include_router(vision_monitor.router, prefix=API)
+
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 
 @app.get("/api/health")

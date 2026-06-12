@@ -416,6 +416,44 @@ class WorkflowCloseIn(BaseModel):
     origin_site_id: int | None = None
 
 
+# ── 비전 상태감시 ──
+class InspectionPointIn(BaseModel):
+    equipment_id: int
+    name: str
+    target_type: str = "GENERIC"   # BOLT/WIRE/SURFACE/RAIL/GENERIC
+    location_note: str = ""
+    period_days: int = 7
+    params: dict | None = None
+
+
+class InspectionPointOut(ORMModel):
+    id: int
+    equipment_id: int
+    name: str
+    target_type: str
+    location_note: str
+    period_days: int
+    baseline_path: str
+    params: dict | None
+    active: bool
+    created_at: datetime
+    equipment: EquipmentOut
+
+
+class InspectionShotOut(ORMModel):
+    id: int
+    point_id: int
+    captured_at: datetime
+    image_path: str
+    overlay_path: str
+    source: str
+    score: float
+    judgment: str
+    findings: list | None
+    detail: dict | None
+    issue_id: int | None
+
+
 # ── Engineering ──
 class WireRopeIn(BaseModel):
     breaking_load_kn: float          # 로프 1본 파단하중

@@ -6,3 +6,4 @@ python-multipart>=0.0.9
 Pillow>=10.0
 numpy>=1.26
 openpyxl>=3.1
+opencv-python-headless>=4.9   # 동영상 프레임 추출 (비전 상태감시)
