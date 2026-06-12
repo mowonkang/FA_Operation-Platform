@@ -10,6 +10,24 @@ from .database import Base
 
 # ───────────────────────── 마스터 ─────────────────────────
 
+class Project(Base):
+    """투자/구축 프로젝트 — 견적·설비 도입의 관리 단위. 삭제는 관리자만."""
+    __tablename__ = "projects"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    code: Mapped[str] = mapped_column(String(30), unique=True)
+    name: Mapped[str] = mapped_column(String(200))
+    site_id: Mapped[int | None] = mapped_column(ForeignKey("sites.id"))
+    status: Mapped[str] = mapped_column(String(20), default="PLANNING")  # PLANNING/ONGOING/DONE/HOLD
+    budget: Mapped[float] = mapped_column(Float, default=0)
+    owner: Mapped[str] = mapped_column(String(50), default="")
+    start_date: Mapped[date | None] = mapped_column(Date)
+    end_date: Mapped[date | None] = mapped_column(Date)
+    description: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    site: Mapped["Site | None"] = relationship(lazy="joined")
+
+
 class Site(Base):
     __tablename__ = "sites"
     id: Mapped[int] = mapped_column(primary_key=True)

@@ -365,6 +365,33 @@ def run():
                        created_at=NOW - timedelta(days=random.randint(1, 20)),
                        closed_at=NOW - timedelta(days=1) if st == "CLOSED" else None))
 
+    # ── 프로젝트 ──
+    db.add_all([
+        m.Project(code="P-2025-001", name="STK-3000 신규라인", site_id=kr.id, status="ONGOING",
+                  budget=420000000, owner="김투자", start_date=date(2025, 9, 1),
+                  end_date=TODAY + timedelta(days=200),
+                  description="A동 자동창고 증설 — 스태커크레인 신모델 도입"),
+        m.Project(code="P-2026-002", name="CN1 AGV 2차 증설", site_id=cn.id, status="PLANNING",
+                  budget=180000000, owner="왕투자", start_date=TODAY + timedelta(days=60),
+                  description="중국 법인 조립라인 AGV 6대 증설"),
+        m.Project(code="P-2024-009", name="VN1 포장라인 컨베이어", site_id=vn.id, status="DONE",
+                  budget=95000000, owner="이투자", start_date=date(2024, 5, 1),
+                  end_date=date(2024, 12, 20), description="포장 1라인 반송 자동화 — 완료"),
+    ])
+
+    # ── 추가 BM/이슈 (데이터 확충) ──
+    extra_bm = [
+        (eqs[10], 42, "주행 위치 보정 빈발", "레이저 반사판 오염", "반사판 청소·고정 보강", 50, None, "CLOSED"),
+        (eqs[7], 27, "AGV 충전 도크 진입 실패 간헐", "도크 가이드 마모", "가이드 교체", 95, None, "CLOSED"),
+        (e1, 50, "권상 브레이크 슬립 경미", "라이닝 마모", "라이닝 교체", 110, pad, "CLOSED"),
+        (eqs[6], 38, "구동 풀리 베어링 소음", "베어링 윤활 부족", "급유 및 상태 감시 강화", 40, None, "CLOSED"),
+    ]
+    for eq_i, days_ago, sym, cause, act, dt_, part, st in extra_bm:
+        db.add(m.BMReport(equipment_id=eq_i.id, occurred_at=NOW - timedelta(days=days_ago),
+                          symptom=sym, cause=cause, action=act, downtime_min=dt_,
+                          failure_part_id=part.id if part else None, status=st,
+                          reported_by="최정비"))
+
     db.add_all([
         m.User(username="admin", name="관리자", role="admin", site_id=kr.id),
         m.User(username="engineer1", name="김엔지니어", role="engineer", site_id=kr.id),

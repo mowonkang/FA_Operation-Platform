@@ -17,6 +17,10 @@ import Knowledge from './pages/Knowledge'
 import Lifecycle from './pages/Lifecycle'
 import Investment from './pages/Investment'
 import Issues from './pages/Issues'
+import Projects from './pages/Projects'
+import DataIO from './pages/DataIO'
+import Sitemap from './pages/Sitemap'
+import SettingsModal, { loadSettings, applySettings } from './Settings'
 
 const groups: { name: string; items: { to: string; label: string; ico: string }[] }[] = [
   {
@@ -31,6 +35,7 @@ const groups: { name: string; items: { to: string; label: string; ico: string }[
     name: '라이프사이클',
     items: [
       { to: '/lifecycle', label: '라이프사이클 맵', ico: '⇶' },
+      { to: '/projects', label: '프로젝트', ico: '◈' },
       { to: '/investment', label: '투자·견적 분석', ico: '₩' },
       { to: '/equipment', label: '설비 마스터/이력', ico: '▣' },
       { to: '/workflows', label: '워크플로우', ico: '☑' },
@@ -53,6 +58,13 @@ const groups: { name: string; items: { to: string; label: string; ico: string }[
       { to: '/lessons', label: 'Lesson & Learn', ico: '↻' },
     ],
   },
+  {
+    name: '시스템',
+    items: [
+      { to: '/data-io', label: '데이터 관리 (엑셀)', ico: '⇅' },
+      { to: '/sitemap', label: '사이트맵', ico: '◫' },
+    ],
+  },
 ]
 
 const titleMap: Record<string, string> = Object.fromEntries(
@@ -67,11 +79,8 @@ export default function App() {
   const [sites, setSites] = useState<any[]>([])
   useEffect(() => { api.get('/sites').then(setSites).catch(() => {}) }, [])
   const pickSite = (v: string) => { setSite(v); localStorage.setItem('fa_site', v) }
-  const [theme, setTheme] = useState(localStorage.getItem('fa_theme') ?? 'light')
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme
-    localStorage.setItem('fa_theme', theme)
-  }, [theme])
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  useEffect(() => { applySettings(loadSettings()) }, [])
   const isGlobal = group?.name === '전사 공통 표준'
   return (
     <SiteCtx.Provider value={{ site, setSite: pickSite }}>
@@ -107,10 +116,8 @@ export default function App() {
                   {sites.map((s: any) => <option key={s.id} value={s.id}>{s.code} {s.name}</option>)}
                 </select>
               )}
-            <button className="theme-toggle" title="라이트/다크 테마 전환"
-              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
-              {theme === 'dark' ? '☀' : '◐'}
-            </button>
+            <button className="theme-toggle" title="설정 (테마/밀도/역할)"
+              onClick={() => setSettingsOpen(true)}>⚙</button>
             <span>{new Date().toLocaleDateString('ko-KR')}</span>
           </div>
         </div>
@@ -120,6 +127,9 @@ export default function App() {
             <Route path="/lifecycle" element={<Lifecycle />} />
             <Route path="/investment" element={<Investment />} />
             <Route path="/issues" element={<Issues />} />
+            <Route path="/projects" element={<Projects />} />
+            <Route path="/data-io" element={<DataIO />} />
+            <Route path="/sitemap" element={<Sitemap />} />
             <Route path="/equipment" element={<Equipment />} />
             <Route path="/equipment/:id" element={<EquipmentDetail />} />
             <Route path="/pm" element={<PM />} />
@@ -134,6 +144,7 @@ export default function App() {
           </Routes>
         </div>
       </main>
+      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </div>
     </SiteCtx.Provider>
   )

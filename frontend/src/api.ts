@@ -1,5 +1,9 @@
 const BASE = '/api/v1'
 
+function roleHeader(): Record<string, string> {
+  return { 'X-Role': localStorage.getItem('fa_role') ?? 'user' }
+}
+
 async function handle(res: Response) {
   if (!res.ok) {
     const text = await res.text()
@@ -9,27 +13,29 @@ async function handle(res: Response) {
 }
 
 export const api = {
-  get: (path: string) => fetch(`${BASE}${path}`).then(handle),
+  get: (path: string) => fetch(`${BASE}${path}`, { headers: roleHeader() }).then(handle),
   post: (path: string, body?: unknown) =>
     fetch(`${BASE}${path}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...roleHeader() },
       body: body === undefined ? undefined : JSON.stringify(body),
     }).then(handle),
   patch: (path: string, body?: unknown) =>
     fetch(`${BASE}${path}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...roleHeader() },
       body: body === undefined ? undefined : JSON.stringify(body),
     }).then(handle),
   put: (path: string, body?: unknown) =>
     fetch(`${BASE}${path}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...roleHeader() },
       body: JSON.stringify(body),
     }).then(handle),
+  del: (path: string) =>
+    fetch(`${BASE}${path}`, { method: 'DELETE', headers: roleHeader() }).then(handle),
   upload: (path: string, form: FormData) =>
-    fetch(`${BASE}${path}`, { method: 'POST', body: form }).then(handle),
+    fetch(`${BASE}${path}`, { method: 'POST', body: form, headers: roleHeader() }).then(handle),
 }
 
 export const STAGE_LABEL: Record<string, string> = {

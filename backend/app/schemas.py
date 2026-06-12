@@ -416,6 +416,45 @@ class WorkflowCloseIn(BaseModel):
     origin_site_id: int | None = None
 
 
+# ── 프로젝트 ──
+class ProjectIn(BaseModel):
+    code: str
+    name: str
+    site_id: int | None = None
+    status: str = "PLANNING"
+    budget: float = 0
+    owner: str = ""
+    start_date: date | None = None
+    end_date: date | None = None
+    description: str = ""
+
+
+class ProjectUpdate(BaseModel):
+    name: str | None = None
+    site_id: int | None = None
+    status: str | None = None
+    budget: float | None = None
+    owner: str | None = None
+    start_date: date | None = None
+    end_date: date | None = None
+    description: str | None = None
+
+
+class ProjectOut(ORMModel):
+    id: int
+    code: str
+    name: str
+    site_id: int | None
+    status: str
+    budget: float
+    owner: str
+    start_date: date | None
+    end_date: date | None
+    description: str
+    created_at: datetime
+    site: SiteOut | None
+
+
 # ── 비전 상태감시 ──
 class InspectionPointIn(BaseModel):
     equipment_id: int

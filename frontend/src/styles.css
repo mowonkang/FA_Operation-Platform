@@ -324,3 +324,64 @@ pre, code { color: var(--text-2); }
   border-radius: 6px; padding: 4px 9px; font-size: 13px; cursor: pointer; line-height: 1;
 }
 .theme-toggle:hover { background: var(--surface-2); filter: none; }
+
+
+/* ── 추가 테마: Petrol (iX Brand Dark 계열 청록 액센트) ── */
+[data-theme="petrol"] {
+  --bg: #0b1416; --surface: #122023; --surface-2: #17282c;
+  --border: #24393e; --border-strong: #355055;
+  --text: #e6f1f2; --text-2: #a8c0c3; --text-3: #6e8d91;
+  --sidebar-bg: #081012; --sidebar-text: #7fa0a4; --sidebar-active: #122023;
+  --accent: #00c1b6; --accent-soft: #0c2f2f;
+  --ok: #43c98a; --ok-bg: #0e2f21; --warn: #f2b441; --warn-bg: #38290d;
+  --ng: #ff6a5e; --ng-bg: #3b1a16; --info: #4fc3d9; --info-bg: #0e2c33;
+  --neutral-bg: #1d3136; --row-hover: #16272b; --row-selected: #0c2f2f;
+  --chart-grid: #24393e;
+}
+
+/* ── 추가 테마: 고대비 라이트 (현장 밝은 환경/프로젝터) ── */
+[data-theme="contrast"] {
+  --bg: #ffffff; --surface: #ffffff; --surface-2: #f2f2f2;
+  --border: #888888; --border-strong: #444444;
+  --text: #000000; --text-2: #1a1a1a; --text-3: #3d3d3d;
+  --sidebar-bg: #000000; --sidebar-text: #cccccc; --sidebar-active: #1f1f1f;
+  --accent: #0044cc; --accent-soft: #dde8ff;
+  --ok: #006622; --ok-bg: #d8f0e0; --warn: #8a4b00; --warn-bg: #ffe9c7;
+  --ng: #b30000; --ng-bg: #ffdada; --info: #003db3; --info-bg: #dde8ff;
+  --neutral-bg: #e8e8e8; --row-hover: #eef3ff; --row-selected: #dde8ff;
+  --chart-grid: #cccccc;
+}
+
+/* ── 밀도: 컴팩트 ── */
+[data-density="compact"] { font-size: 13px; }
+[data-density="compact"] th, [data-density="compact"] td { padding: 3px 8px; font-size: 11.5px; }
+[data-density="compact"] .panel { padding: 10px 14px; margin-bottom: 10px; }
+[data-density="compact"] .card { padding: 8px 11px; }
+[data-density="compact"] .card .value { font-size: 20px; }
+[data-density="compact"] .content { padding: 14px 20px 36px; }
+[data-density="compact"] .sidebar a { padding: 5px 18px; font-size: 12.5px; }
+[data-density="compact"] button, [data-density="compact"] .btn { padding: 4px 10px; font-size: 12px; }
+
+/* ── 설정 모달 ── */
+.modal-backdrop {
+  position: fixed; inset: 0; background: rgba(8, 12, 18, .55); z-index: 100;
+  display: flex; align-items: flex-start; justify-content: center; padding-top: 9vh;
+}
+.modal {
+  background: var(--surface); border: 1px solid var(--border-strong);
+  border-radius: 10px; width: 520px; max-width: 92vw; max-height: 80vh; overflow-y: auto;
+  padding: 20px 24px; box-shadow: 0 18px 50px rgba(0,0,0,.35);
+}
+.modal h3 { margin: 0 0 4px; font-size: 15px; color: var(--text); }
+.set-row { display: flex; align-items: center; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--border); }
+.set-row:last-of-type { border-bottom: none; }
+.set-row .sr-label { width: 130px; font-size: 12.5px; font-weight: 600; flex-shrink: 0; }
+.set-row .sr-desc { font-size: 11px; color: var(--text-3); margin-top: 2px; font-weight: 400; }
+.theme-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.theme-chip {
+  border: 2px solid var(--border-strong); border-radius: 7px; padding: 6px 10px;
+  cursor: pointer; font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 6px;
+  background: var(--surface); color: var(--text-2);
+}
+.theme-chip.on { border-color: var(--accent); color: var(--accent); }
+.theme-chip .swatch { width: 14px; height: 14px; border-radius: 4px; border: 1px solid rgba(0,0,0,.2); }

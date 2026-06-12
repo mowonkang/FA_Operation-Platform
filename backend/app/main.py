@@ -5,9 +5,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from .database import Base, engine
-from .routers import (bm, engineering, equipment, fdc, issues, knowledge,
-                      lessons, lifecycle_config, meta, parts, pm, quotations,
-                      vision, vision_monitor, workflows)
+from .routers import (bm, engineering, equipment, excel_io, fdc, issues, knowledge,
+                      lessons, lifecycle_config, meta, parts, pm, projects,
+                      quotations, vision, vision_monitor, workflows)
 
 Base.metadata.create_all(bind=engine)
 
@@ -44,6 +44,8 @@ app.include_router(lifecycle_config.router, prefix=API)
 app.include_router(quotations.router, prefix=API)
 app.include_router(issues.router, prefix=API)
 app.include_router(vision_monitor.router, prefix=API)
+app.include_router(projects.router, prefix=API)
+app.include_router(excel_io.router, prefix=API)
 
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
